@@ -12,6 +12,7 @@ public class Team {
     private final Set<UUID> members = new HashSet<>();
     private League league;
     private String color;
+    private int maxMembers = 4;
 
     public Team(String name, String color, League league) {
         this.name = name;
@@ -35,8 +36,11 @@ public class Team {
         return league;
     }
 
-    public void addMember(UUID uuid) {
-        members.add(uuid);
+    public boolean addMember(UUID uuid) {
+        if (members.size() >= maxMembers) {
+            return false;
+        }
+        return members.add(uuid); // returns false if already a member
     }
 
     public void removeMember(UUID uuid) {

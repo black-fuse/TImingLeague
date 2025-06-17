@@ -13,10 +13,15 @@ public class League {
     private final Set<DriverDetails> driversList = new HashSet<>();
     private final Set<Event> calendar = new HashSet<>();
     private int predictedDriverCount;
+    private ScoringSystem scoringSystem;
 
     public League(String name, int predictedDriverCount) {
         this.name = name;
         this.predictedDriverCount = predictedDriverCount;
+    }
+
+    public void setScoringSystem(ScoringSystem scoringSystem) {
+        this.scoringSystem = scoringSystem;
     }
 
     public String getName() {
