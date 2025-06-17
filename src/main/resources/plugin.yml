@@ -1,0 +1,4 @@
+name: TImingLeague
+version: '1.0-SNAPSHOT'
+main: com.tekad.TimingLeague.TImingLeague
+api-version: '1.20'
