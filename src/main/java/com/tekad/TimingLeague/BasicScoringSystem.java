@@ -7,12 +7,11 @@ public class BasicScoringSystem implements ScoringSystem {
 
     @Override
     public List<Integer> getPointsDistribution(int driverCount) {
-        // Example: simple descending points for top 40% of drivers
         int topN = Math.max(10, driverCount / 3);
         List<Integer> points = new ArrayList<>();
 
         for (int i = 0; i < topN; i++) {
-            points.add(Math.max(1, (topN - i) * 2)); // e.g., 80, 78, 76, ...
+            points.add(Math.max(1, (topN - i) * 2));
         }
 
         return points;
