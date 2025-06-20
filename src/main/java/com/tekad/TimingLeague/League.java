@@ -15,7 +15,7 @@ public class League {
     private final Set<String> calendar = new HashSet<>();
     private int predictedDriverCount;
     private ScoringSystem scoringSystem;
-    private final Team NoTeam = new Team("No Team", "a8a8a8", this);
+    public final Team NoTeam = new Team("No Team", "a8a8a8", this);
 
     private Map<String, Integer> driverStandings = new HashMap<>();
     private Map<String, Integer> teamStandings = new HashMap<>();
