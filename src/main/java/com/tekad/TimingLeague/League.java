@@ -1,5 +1,7 @@
 package com.tekad.TimingLeague;
 
+import lombok.Getter;
+import lombok.Setter;
 import me.makkuusen.timing.system.api.EventResultsAPI;
 import me.makkuusen.timing.system.api.event.DriverResult;
 import me.makkuusen.timing.system.api.event.EventResult;
@@ -10,16 +12,25 @@ import java.util.*;
 
 public class League {
 
+    @Getter
     private final String name;
     private final Set<Team> teamsList = new HashSet<>();
+    @Getter
     private final Set<String> calendar = new HashSet<>();
+    @Getter
     private int predictedDriverCount;
+    @Getter
+    @Setter
     private ScoringSystem scoringSystem;
     public final Team NoTeam = new Team("No Team", "a8a8a8", this);
+    public int flapPoints = 0;
 
-    private Map<String, Integer> driverStandings = new HashMap<>();
-    private Map<String, Integer> teamStandings = new HashMap<>();
-    private Map<String, Team> driversList = new HashMap<>();
+    private final Map<String, Integer> driverStandings = new HashMap<>();
+    private final Map<String, Integer> teamStandings = new HashMap<>();
+    @Getter
+    private final Map<String, Team> driversList = new HashMap<>();
+
+    private StandingsUpdater updater = new DefaultStandingsUpdater();
 
     public League(String name, int predictedDriverCount) {
         this.name = name;
@@ -27,16 +38,12 @@ public class League {
         teamsList.add(NoTeam);
     }
 
-    public void setScoringSystem(ScoringSystem scoringSystem) {
-        this.scoringSystem = scoringSystem;
+    public StandingsUpdater getUpdater(){
+        return updater;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public int getPredictedDriverCount() {
-        return predictedDriverCount;
+    public void setUpdater(StandingsUpdater updater){
+        this.updater = updater;
     }
 
     public Set<Team> getTeams() {
@@ -59,12 +66,12 @@ public class League {
         driversList.put(driver, team);
     }
 
-    public Set<String> getCalendar() {
-        return calendar;
-    }
-
     public void addEvent(String event) {
         calendar.add(event);
+    }
+
+    private void setFlapPoints(int points){
+        flapPoints = points;
     }
 
     public void addPointsToDriver(String uuid, int points){
@@ -77,33 +84,5 @@ public class League {
 
     public Team getTeamByDriver(String driver){
         return driversList.getOrDefault(driver, NoTeam);
-    }
-
-    public void updateStandingsFromEvents() {
-        for (String event : calendar){
-            EventResult results = EventResultsAPI.getEventResult(event);
-            if (results == null || results.getRounds() == null) continue;
-
-            for (RoundResult roundResult: results.getRounds()){
-                for (HeatResult heat: roundResult.getHeatResults()){
-                    List<DriverResult> drivers = heat.getDriverResultList();
-                    int driverCount = drivers.size();
-
-                    for (DriverResult driver : heat.getDriverResultList()){
-                        String DriverUUID = driver.getUuid();
-
-                        if (!driversList.containsKey(DriverUUID)){
-                            addDriver(DriverUUID, NoTeam);
-                        }
-
-                        Team DriversTeam = this.getTeamByDriver(DriverUUID);
-
-                        int points = scoringSystem.getPointsForPosition(driver.getPosition(), driverCount);
-                        this.addPointsToDriver(DriverUUID, points);
-                        this.addPointsToTeam(DriversTeam.getName(), points);
-                    }
-                }
-            }
-        }
     }
 }
