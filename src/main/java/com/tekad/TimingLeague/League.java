@@ -2,11 +2,6 @@ package com.tekad.TimingLeague;
 
 import lombok.Getter;
 import lombok.Setter;
-import me.makkuusen.timing.system.api.EventResultsAPI;
-import me.makkuusen.timing.system.api.event.DriverResult;
-import me.makkuusen.timing.system.api.event.EventResult;
-import me.makkuusen.timing.system.api.event.HeatResult;
-import me.makkuusen.timing.system.api.event.RoundResult;
 
 import java.util.*;
 
@@ -89,4 +84,15 @@ public class League {
     public Team getTeamByDriver(String driver){
         return driversList.getOrDefault(driver, NoTeam);
     }
+
+    public Team getTeam(String teamName) {
+        for (Team team : teamsList) {
+            if (team.getName().equalsIgnoreCase(teamName)) {
+                return team;
+            }
+        }
+        return null;
+    }
+
+
 }

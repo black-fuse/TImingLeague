@@ -63,6 +63,7 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
         }
     }
 
+
     public HeatResult getHeatResults(String event, String heatId) {
         // Validate heatId format (e.g., r1q2, r2f1)
         if (!heatId.matches("r\\d+[fq]\\d+")) {

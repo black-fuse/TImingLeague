@@ -9,7 +9,7 @@ import java.util.UUID;
 public class Team {
 
     private String name;
-    private final Set<UUID> members = new HashSet<>();
+    private final Set<String> members = new HashSet<>();
     private League league;
     private String color;
     private int maxMembers = 4;
@@ -28,7 +28,9 @@ public class Team {
         return color;
     }
 
-    public Set<UUID> getMembers() {
+    public void setColor(String color){this.color = color; }
+
+    public Set<String> getMembers() {
         return members;
     }
 
@@ -36,7 +38,7 @@ public class Team {
         return league;
     }
 
-    public boolean addMember(UUID uuid) {
+    public boolean addMember(String uuid) {
         if (members.size() >= maxMembers) {
             return false;
         }
