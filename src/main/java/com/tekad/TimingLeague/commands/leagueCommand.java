@@ -1,9 +1,6 @@
 package com.tekad.TimingLeague.commands;
 
-import com.tekad.TimingLeague.DefaultStandingsUpdater;
-import com.tekad.TimingLeague.League;
-import com.tekad.TimingLeague.TImingLeague;
-import com.tekad.TimingLeague.Team;
+import com.tekad.TimingLeague.*;
 import me.makkuusen.timing.system.api.EventResultsAPI;
 import me.makkuusen.timing.system.api.event.HeatResult;
 import org.bukkit.Bukkit;
@@ -14,6 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -130,6 +128,127 @@ public class leagueCommand implements CommandExecutor {
                             player.sendMessage("Failed to update from heat: " + e.getMessage());
                         }
                     }
+
+                    case "standings" -> {
+                        int page = 1;
+                        boolean showTeams = false;
+
+                        if (args.length >= 3) {
+                            if (args[2].equalsIgnoreCase("teams")) {
+                                showTeams = true;
+                                if (args.length >= 4) {
+                                    try {
+                                        page = Integer.parseInt(args[3]);
+                                    } catch (NumberFormatException ignored) {}
+                                }
+                            } else {
+                                try {
+                                    page = Integer.parseInt(args[2]);
+                                } catch (NumberFormatException ignored) {}
+                            }
+                        }
+
+                        int pageSize = 15;
+                        int start = (page - 1) * pageSize;
+
+                        if (showTeams) {
+                            var standings = league.getTeamStandings().entrySet().stream()
+                                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                                    .toList();
+
+                            if (start >= standings.size()) {
+                                player.sendMessage("Page out of range.");
+                                return true;
+                            }
+
+                            player.sendMessage("=== Team Standings (Page " + page + ") ===");
+                            for (int i = start; i < Math.min(start + pageSize, standings.size()); i++) {
+                                var entry = standings.get(i);
+                                player.sendMessage((i + 1) + ". " + entry.getKey() + " - " + entry.getValue() + " pts");
+                            }
+
+                        } else {
+                            var standings = league.getDriverStandings().entrySet().stream()
+                                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                                    .toList();
+
+                            if (start >= standings.size()) {
+                                player.sendMessage("Page out of range.");
+                                return true;
+                            }
+
+                            player.sendMessage("=== Driver Standings (Page " + page + ") ===");
+                            for (int i = start; i < Math.min(start + pageSize, standings.size()); i++) {
+                                var entry = standings.get(i);
+                                OfflinePlayer p = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey()));
+                                player.sendMessage((i + 1) + ". " + p.getName() + " - " + entry.getValue() + " pts");
+                            }
+                        }
+                    }
+
+                    case "holo" -> {
+                        if (!(sender instanceof Player p)) {
+                            sender.sendMessage("Only players can place holograms.");
+                            return true;
+                        }
+
+                        if (args.length < 3) {
+                            player.sendMessage("Usage: /league <leagueName> holo <driver|team> [page]");
+                            return true;
+                        }
+
+                        boolean teamMode = args[2].equalsIgnoreCase("team");
+                        int page = 1;
+                        if (args.length >= 4) {
+                            try {
+                                page = Integer.parseInt(args[3]);
+                            } catch (NumberFormatException ignored) {}
+                        }
+
+                        int pageSize = 15;
+                        int start = (page - 1) * pageSize;
+                        List<String> lines;
+
+                        if (teamMode) {
+                            var standings = league.getTeamStandings().entrySet().stream()
+                                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                                    .toList();
+
+                            if (start >= standings.size()) {
+                                player.sendMessage("Page out of range.");
+                                return true;
+                            }
+
+                            lines = standings.subList(start, Math.min(start + pageSize, standings.size())).stream()
+                                    .map(entry -> {
+                                        int index = standings.indexOf(entry) + 1;
+                                        return "&e#" + index + ". &b" + entry.getKey() + " &7- &a" + entry.getValue() + " pts";
+                                    }).toList();
+
+                        } else {
+                            var standings = league.getDriverStandings().entrySet().stream()
+                                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                                    .toList();
+
+                            if (start >= standings.size()) {
+                                player.sendMessage("Page out of range.");
+                                return true;
+                            }
+
+                            lines = standings.subList(start, Math.min(start + pageSize, standings.size())).stream()
+                                    .map(entry -> {
+                                        int index = standings.indexOf(entry) + 1;
+                                        String name = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey())).getName();
+                                        return "&e#" + index + ". &b" + (name != null ? name : "Unknown") + " &7- &a" + entry.getValue() + " pts";
+                                    }).toList();
+                        }
+
+                        LeagueHologramManager manager = new LeagueHologramManager();
+                        manager.createOrUpdateHologram(p.getLocation(), lines);
+                        player.sendMessage("Leaderboard hologram placed.");
+                    }
+
+
 
                     case "team" -> {
                         if (args.length < 3) {
@@ -289,6 +408,8 @@ public class leagueCommand implements CommandExecutor {
             /league <leagueName> team remove <teamName> <playerName> - Remove a player from a team
             /league <leagueName> team view <teamName> - View a team and its members
             /league <leagueName> team <teamName> - Shorthand to view a team
+            /league <leagueName> standings [page] - View driver standings with pagination
+            /league <leagueName> standings teams [page] - View team standings with pagination
             /league help - Show this help message
             """);
     }

@@ -61,6 +61,10 @@ public class League {
         return driversList.keySet();
     }
 
+    public Map<String, Integer> getDriverStandings(){
+        return  driverStandings;
+    }
+
     public void addDriver(String driver, Team team) {
         driversList.put(driver, team);
     }
@@ -95,4 +99,7 @@ public class League {
     }
 
 
+    public Map<String, Integer> getTeamStandings() {
+        return  teamStandings;
+    }
 }
