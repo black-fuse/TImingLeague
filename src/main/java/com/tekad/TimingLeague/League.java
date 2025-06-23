@@ -16,7 +16,7 @@ public class League {
     private int predictedDriverCount;
     @Getter
     @Setter
-    private ScoringSystem scoringSystem;
+    private ScoringSystem scoringSystem = new BasicScoringSystem();
     public final Team NoTeam = new Team("No Team", "a8a8a8", this);
     public int flapPoints = 0;
 
@@ -47,6 +47,15 @@ public class League {
 
     public Set<Team> getTeams() {
         return teamsList;
+    }
+
+    public Set<String> getTeamsString(){
+        Set<String> list = new HashSet<>();
+        for (Team team : teamsList){
+            list.add(team.getName());
+        }
+
+        return list;
     }
 
     public void setPredictedDrivers(int num){

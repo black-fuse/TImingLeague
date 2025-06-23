@@ -1,36 +1,49 @@
 package com.tekad.TimingLeague;
 
+import com.tekad.TimingLeague.commands.LeagueCommandCompleter;
+import com.tekad.TimingLeague.commands.leagueCommand;
 import lombok.Getter;
 import org.bukkit.plugin.java.JavaPlugin;
 import com.tekad.TimingLeague.commands.leagueCommand;
 
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Map;
 
 public final class TImingLeague extends JavaPlugin {
+
     private DatabaseManager db;
+
     @Getter
-    private static Map<String, League> leagueMap;
+    private static final Map<String, League> leagueMap = new HashMap<>();
 
     @Override
     public void onEnable() {
-        //database startup
+        // Ensure data folder exists before database file creation
+        getDataFolder().mkdirs();
+
+        // Database startup
         db = new DatabaseManager(this);
-        try{
+        try {
             db.connect();
             db.createTables();
-            leagueMap = db.loadAllLeagues();
-        }catch (SQLException e){
-            getLogger().severe("[TimingLeague] failed to connect to the database: " + e);
+            leagueMap.putAll(db.loadAllLeagues());
+        } catch (SQLException e) {
+            getLogger().severe("[TimingLeague] Failed to connect to the database: " + e);
         }
 
-        // commands initialisation
-        getCommand("league").setExecutor(new leagueCommand());
+        // Command registration
+        if (getCommand("league") != null) {
+            getCommand("league").setExecutor(new leagueCommand());
+            getCommand("league").setTabCompleter(new LeagueCommandCompleter());
+        } else {
+            getLogger().severe("Command 'league' not found in plugin.yml!");
+        }
     }
+
 
     @Override
     public void onDisable() {
-        // saving db's
         try {
             db.saveAllLeagues(leagueMap.values());
         } catch (SQLException e) {
@@ -42,8 +55,7 @@ public final class TImingLeague extends JavaPlugin {
         return db;
     }
 
-    public void addLeagueToMap(League league){
-        String name = league.getName();
-        leagueMap.put(name, league);
+    public void addLeagueToMap(League league) {
+        leagueMap.put(league.getName(), league);
     }
 }

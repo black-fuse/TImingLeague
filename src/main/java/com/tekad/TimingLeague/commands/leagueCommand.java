@@ -19,6 +19,7 @@ public class leagueCommand implements CommandExecutor {
 
     private final Map<String, League> leagues = TImingLeague.getLeagueMap();
 
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
                              @NotNull String label, @NotNull String[] args) {
@@ -85,7 +86,12 @@ public class leagueCommand implements CommandExecutor {
                     }
 
                     case "update" -> {
-                        league.updateStandings();
+                        try{
+                            league.updateStandings();
+
+                        }catch (Exception e){
+                            league.setScoringSystem(new BasicScoringSystem());
+                        }
                         player.sendMessage("Standings updated for league: " + leagueName);
                     }
 
