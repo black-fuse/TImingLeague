@@ -38,6 +38,10 @@ public class League {
         teamsList.add(NoTeam);
     }
 
+    public void updateStandings() {
+        updater.updateStandingsFromEvents(this);
+    }
+
     public StandingsUpdater getUpdater(){
         return updater;
     }
