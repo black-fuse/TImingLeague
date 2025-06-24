@@ -11,6 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class leagueCommand implements CommandExecutor {
 
     private final Map<String, League> leagues = TImingLeague.getLeagueMap();
+    private List<String> holograms = TImingLeague.getHolograms();
 
 
     @Override
@@ -213,9 +215,10 @@ public class leagueCommand implements CommandExecutor {
 
                         int pageSize = 15;
                         int start = (page - 1) * pageSize;
-                        List<String> lines;
+                        List<String> lines = new ArrayList<>();
 
                         if (teamMode) {
+                            lines.add(leagueName + " team leaderboard");
                             var standings = league.getTeamStandings().entrySet().stream()
                                     .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
                                     .toList();
@@ -225,13 +228,14 @@ public class leagueCommand implements CommandExecutor {
                                 return true;
                             }
 
-                            lines = standings.subList(start, Math.min(start + pageSize, standings.size())).stream()
-                                    .map(entry -> {
-                                        int index = standings.indexOf(entry) + 1;
-                                        return "&e#" + index + ". &b" + entry.getKey() + " &7- &a" + entry.getValue() + " pts";
-                                    }).toList();
+                            int end = Math.min(start + pageSize, standings.size());
+                            for (int i = start; i < end; i++) {
+                                var entry = standings.get(i);
+                                lines.add("&e#" + (i + 1) + ". &b" + entry.getKey() + " &7- &a" + entry.getValue() + " pts");
+                            }
 
                         } else {
+                            lines.add(leagueName + "driver leaderboard");
                             var standings = league.getDriverStandings().entrySet().stream()
                                     .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
                                     .toList();
@@ -241,17 +245,34 @@ public class leagueCommand implements CommandExecutor {
                                 return true;
                             }
 
-                            lines = standings.subList(start, Math.min(start + pageSize, standings.size())).stream()
-                                    .map(entry -> {
-                                        int index = standings.indexOf(entry) + 1;
-                                        String name = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey())).getName();
-                                        return "&e#" + index + ". &b" + (name != null ? name : "Unknown") + " &7- &a" + entry.getValue() + " pts";
-                                    }).toList();
+                            int end = Math.min(start + pageSize, standings.size());
+                            for (int i = start; i < end; i++) {
+                                var entry = standings.get(i);
+                                String name = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey())).getName();
+                                lines.add("&e#" + (i + 1) + ". &b" + (name != null ? name : "Unknown") + " &7- &a" + entry.getValue() + " pts");
+                            }
+                        }
+
+                        while (lines.size() < pageSize){
+                            lines.add("&e#" + (lines.size() + 1) + ". &7---");
                         }
 
                         LeagueHologramManager manager = new LeagueHologramManager();
-                        manager.createOrUpdateHologram(p.getLocation(), lines);
-                        player.sendMessage("Leaderboard hologram placed.");
+
+                        if (args[2].equalsIgnoreCase("update")) {
+                            String leaguePrefix = "league-holo-" + leagueName;
+
+                            for (String hologram : holograms) {
+                                if (hologram.startsWith(leaguePrefix)) {
+                                    manager.updateExistingHologram(hologram, lines);
+                                }
+                            }
+                        }
+                        else{
+                            manager.createOrUpdateHologram(p.getLocation(), lines, leagueName);
+                            player.sendMessage("Leaderboard hologram placed: " + manager.getHologramName());
+                            holograms.add(manager.getHologramName());
+                        }
                     }
 
 

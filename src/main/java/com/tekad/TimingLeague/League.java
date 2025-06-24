@@ -70,6 +70,14 @@ public class League {
         return driversList.keySet();
     }
 
+    public int getDriverPoints(String driver){
+        return driverStandings.getOrDefault(driver, 0);
+    }
+
+    public void setDriverPoints(String driver, int points){
+        driverStandings.put(driver, points);
+    }
+
     public Map<String, Integer> getDriverStandings(){
         return  driverStandings;
     }
