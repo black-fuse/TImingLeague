@@ -1,15 +1,18 @@
 package com.tekad.TimingLeague.commands;
 
 import com.tekad.TimingLeague.*;
+import eu.decentsoftware.holograms.api.DHAPI;
 import me.makkuusen.timing.system.api.EventResultsAPI;
 import me.makkuusen.timing.system.api.event.HeatResult;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
+import eu.decentsoftware.holograms.api.holograms.Hologram;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -135,6 +138,8 @@ public class leagueCommand implements CommandExecutor {
                         } catch (Exception e) {
                             player.sendMessage("Failed to update from heat: " + e.getMessage());
                         }
+
+                        createOrUpdateHolograms(league, 1, player, "update");
                     }
 
                     case "standings" -> {
@@ -205,7 +210,7 @@ public class leagueCommand implements CommandExecutor {
                             return true;
                         }
 
-                        boolean teamMode = args[2].equalsIgnoreCase("team");
+
                         int page = 1;
                         if (args.length >= 4) {
                             try {
@@ -213,66 +218,36 @@ public class leagueCommand implements CommandExecutor {
                             } catch (NumberFormatException ignored) {}
                         }
 
-                        int pageSize = 15;
-                        int start = (page - 1) * pageSize;
-                        List<String> lines = new ArrayList<>();
+                        if (args[2].equalsIgnoreCase("deleteClosest")){
+                            Location playerLocation = player.getLocation();
+                            double closestDistance = Double.MAX_VALUE;
+                            Hologram closest = null;
 
-                        if (teamMode) {
-                            lines.add(leagueName + " team leaderboard");
-                            var standings = league.getTeamStandings().entrySet().stream()
-                                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
-                                    .toList();
+                            for (String holoName : holograms){
+                                Hologram holo = DHAPI.getHologram(holoName);
+                                if (!holo.getLocation().getWorld().equals(playerLocation.getWorld())) continue;
 
-                            if (start >= standings.size()) {
-                                player.sendMessage("Page out of range.");
-                                return true;
-                            }
-
-                            int end = Math.min(start + pageSize, standings.size());
-                            for (int i = start; i < end; i++) {
-                                var entry = standings.get(i);
-                                lines.add("&e#" + (i + 1) + ". &b" + entry.getKey() + " &7- &a" + entry.getValue() + " pts");
-                            }
-
-                        } else {
-                            lines.add(leagueName + "driver leaderboard");
-                            var standings = league.getDriverStandings().entrySet().stream()
-                                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
-                                    .toList();
-
-                            if (start >= standings.size()) {
-                                player.sendMessage("Page out of range.");
-                                return true;
-                            }
-
-                            int end = Math.min(start + pageSize, standings.size());
-                            for (int i = start; i < end; i++) {
-                                var entry = standings.get(i);
-                                String name = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey())).getName();
-                                lines.add("&e#" + (i + 1) + ". &b" + (name != null ? name : "Unknown") + " &7- &a" + entry.getValue() + " pts");
-                            }
-                        }
-
-                        while (lines.size() < pageSize){
-                            lines.add("&e#" + (lines.size() + 1) + ". &7---");
-                        }
-
-                        LeagueHologramManager manager = new LeagueHologramManager();
-
-                        if (args[2].equalsIgnoreCase("update")) {
-                            String leaguePrefix = "league-holo-" + leagueName;
-
-                            for (String hologram : holograms) {
-                                if (hologram.startsWith(leaguePrefix)) {
-                                    manager.updateExistingHologram(hologram, lines);
+                                double distance = holo.getLocation().distanceSquared(playerLocation); // faster than .distance
+                                if (distance < closestDistance) {
+                                    closestDistance = distance;
+                                    closest = holo;
                                 }
                             }
+
+                            if (closest != null){
+                                closest.delete();
+                                player.sendMessage("successfully deleted " + closest.getName());
+                            }
+                            else {
+                                player.sendMessage("there is no hologram to delete");
+                            }
+                            holograms.remove(closest.getName());
+
+                            return true;
                         }
-                        else{
-                            manager.createOrUpdateHologram(p.getLocation(), lines, leagueName);
-                            player.sendMessage("Leaderboard hologram placed: " + manager.getHologramName());
-                            holograms.add(manager.getHologramName());
-                        }
+
+                        // if holograms are broken, this is probably why
+                        return createOrUpdateHolograms(league, page, player, args[2]);
                     }
 
 
@@ -441,4 +416,71 @@ public class leagueCommand implements CommandExecutor {
             """);
     }
 
+    private boolean createOrUpdateHolograms(League league, int page, Player player, String argument){
+        boolean teamMode = argument.equalsIgnoreCase("team");
+        String leagueName = league.getName();
+        int pageSize = 15;
+        int start = (page - 1) * pageSize;
+        List<String> lines = new ArrayList<>();
+        Location placeLocation = player.getLocation();
+        placeLocation.setY(placeLocation.getY() + 5);
+
+        if (teamMode) {
+            lines.add(leagueName + " team leaderboard");
+            var standings = league.getTeamStandings().entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                    .toList();
+
+            if (start >= standings.size()) {
+                player.sendMessage("Page out of range.");
+                return true;
+            }
+
+            int end = Math.min(start + pageSize, standings.size());
+            for (int i = start; i < end; i++) {
+                var entry = standings.get(i);
+                lines.add("&e#" + (i + 1) + ". &b" + entry.getKey() + " &7- &a" + entry.getValue() + " pts");
+            }
+
+        } else {
+            lines.add(leagueName + " driver leaderboard");
+            var standings = league.getDriverStandings().entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                    .toList();
+
+            if (start >= standings.size()) {
+                player.sendMessage("Page out of range.");
+                return true;
+            }
+
+            int end = Math.min(start + pageSize, standings.size());
+            for (int i = start; i < end; i++) {
+                var entry = standings.get(i);
+                String name = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey())).getName();
+                lines.add("&e#" + (i + 1) + ". &b" + (name != null ? name : "Unknown") + " &7- &a" + entry.getValue() + " pts");
+            }
+        }
+
+        while (lines.size() < pageSize){
+            lines.add("&e#" + (lines.size() + 1) + ". &7---");
+        }
+
+        LeagueHologramManager manager = new LeagueHologramManager();
+
+        if (argument.equalsIgnoreCase("update")) {
+            String leaguePrefix = "league-holo-" + leagueName;
+
+            for (String hologram : holograms) {
+                if (hologram.startsWith(leaguePrefix)) {
+                    manager.updateExistingHologram(hologram, lines);
+                }
+            }
+        }
+        else{
+            manager.createOrUpdateHologram(placeLocation, lines, leagueName);
+            player.sendMessage("Leaderboard hologram placed: " + manager.getHologramName());
+            holograms.add(manager.getHologramName());
+        }
+        return true;
+    }
 }

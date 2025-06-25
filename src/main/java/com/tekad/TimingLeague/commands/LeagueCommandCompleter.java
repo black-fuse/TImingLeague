@@ -41,7 +41,7 @@ public class LeagueCommandCompleter implements TabCompleter {
             } else if (sub.equals("addevent") || sub.equals("updatewithheat")) {
                 completions.add("<eventId>");
             } else if (sub.equals("holo")) {
-                completions.addAll(List.of("driver", "team", "update"));
+                completions.addAll(List.of("driver", "team", "update","deleteClosest"));
             } else if (sub.equals("team")) {
                 completions.addAll(List.of("create", "color", "add", "remove", "view"));
                 completions.addAll(leagues.get(args[0]).getTeamsString()); // team names
