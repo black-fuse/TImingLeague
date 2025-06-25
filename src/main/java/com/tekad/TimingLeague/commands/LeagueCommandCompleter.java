@@ -45,6 +45,8 @@ public class LeagueCommandCompleter implements TabCompleter {
             } else if (sub.equals("team")) {
                 completions.addAll(List.of("create", "color", "add", "remove", "view"));
                 completions.addAll(leagues.get(args[0]).getTeamsString()); // team names
+            } else if (sub.equals("scoring")){
+                completions.addAll(List.of("fc1","fc2","default"));
             }
         }
 

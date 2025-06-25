@@ -142,6 +142,21 @@ public class leagueCommand implements CommandExecutor {
                         createOrUpdateHolograms(league, 1, player, "update");
                     }
 
+                    case "scoring" ->{
+                        if (args[2].equalsIgnoreCase("fc1")){
+                            league.setScoringSystem(new FC1ScoringSystem());
+                        }
+                        if (args[2].equalsIgnoreCase("fc2")){
+                            league.setScoringSystem(new FC2ScoringSystem());
+                        }
+                        if (args[2].equalsIgnoreCase("default")){
+                            league.setScoringSystem(new BasicScoringSystem());
+                        }
+                        else{
+                            player.sendMessage("not a valid scoring system");
+                        }
+                    }
+
                     case "standings" -> {
                         int page = 1;
                         boolean showTeams = false;
@@ -415,6 +430,7 @@ public class leagueCommand implements CommandExecutor {
         /league <leagueName> holo <driver|team> [page] - Show hologram standings near you
         /league <leagueName> holo deleteClosest - Delete the closest hologram near you
         /league <leagueName> holo update - updates all holograms from this league
+        /league <leagueName> scoring <fc1|fc2|default> - choose a default scoring method
         /league help - Show this help message
         """);
     }
@@ -430,7 +446,7 @@ public class leagueCommand implements CommandExecutor {
         placeLocation.setY(placeLocation.getY() + 5);
 
         if (teamMode) {
-            lines.add(leagueName + " team leaderboard");
+            lines.add("&r" +  leagueName + " team leaderboard");
             var standings = league.getTeamStandings().entrySet().stream()
                     .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
                     .toList();
