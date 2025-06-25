@@ -397,24 +397,28 @@ public class leagueCommand implements CommandExecutor {
 
     private void showHelp(Player player) {
         player.sendMessage("""
-            === /league Command Help ===
-            /league create <leagueName> - Create a new league
-            /league <leagueName> addDriver <username> - Manually add a driver to the league
-            /league <leagueName> addEvent <eventId> - Add an event to the league calendar
-            /league <leagueName> calendar - View the league's event calendar
-            /league <leagueName> update - Update standings using all league events
-            /league <leagueName> updateWithHeat <eventId> <heatId> - Update standings using a specific heat
-            /league <leagueName> team create <teamName> [hexColor] - Create a team with an optional hex color
-            /league <leagueName> team color <teamName> <hexColor> - Change a team's color
-            /league <leagueName> team add <teamName> <playerName> - Add a player to a team
-            /league <leagueName> team remove <teamName> <playerName> - Remove a player from a team
-            /league <leagueName> team view <teamName> - View a team and its members
-            /league <leagueName> team <teamName> - Shorthand to view a team
-            /league <leagueName> standings [page] - View driver standings with pagination
-            /league <leagueName> standings teams [page] - View team standings with pagination
-            /league help - Show this help message
-            """);
+        === /league Command Help ===
+        /league create <leagueName> - Create a new league
+        /league <leagueName> addDriver <username> - Manually add a driver to the league
+        /league <leagueName> addEvent <eventId> - Add an event to the league calendar
+        /league <leagueName> calendar - View the league's event calendar
+        /league <leagueName> update - Update standings using all league events (pls dont use)
+        /league <leagueName> updateWithHeat <eventId> <heatId> - Update standings using a specific heat
+        /league <leagueName> team create <teamName> [hexColor] - Create a team with an optional hex color
+        /league <leagueName> team color <teamName> <hexColor> - Change a team's color
+        /league <leagueName> team add <teamName> <playerName> - Add a player to a team
+        /league <leagueName> team remove <teamName> <playerName> - Remove a player from a team
+        /league <leagueName> team view <teamName> - View a team and its members
+        /league <leagueName> team <teamName> - Shorthand to view a team
+        /league <leagueName> standings [page] - View driver standings with pagination
+        /league <leagueName> standings teams [page] - View team standings with pagination
+        /league <leagueName> holo <driver|team> [page] - Show hologram standings near you
+        /league <leagueName> holo deleteClosest - Delete the closest hologram near you
+        /league <leagueName> holo update - updates all holograms from this league
+        /league help - Show this help message
+        """);
     }
+
 
     private boolean createOrUpdateHolograms(League league, int page, Player player, String argument){
         boolean teamMode = argument.equalsIgnoreCase("team");
