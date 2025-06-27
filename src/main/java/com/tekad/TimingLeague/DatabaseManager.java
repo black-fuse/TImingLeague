@@ -34,7 +34,8 @@ public class DatabaseManager {
                 leagueName TEXT,
                 uuid TEXT,
                 team TEXT,
-                int points
+                int points,
+                FOREIGN KEY (leagueName) REFERENCES leagues(name)
             );
             CREATE TABLE IF NOT EXISTS calendar (
                 leagueName TEXT,
@@ -57,6 +58,18 @@ public class DatabaseManager {
     }
 
     public void saveLeague(League league) throws SQLException {
+
+        PreparedStatement clearDrivers = connection.prepareStatement("DELETE FROM drivers WHERE leagueName = ?");
+        clearDrivers.setString(1, league.getName());
+        clearDrivers.executeUpdate();
+        clearDrivers.close();
+
+        PreparedStatement clearEvents = connection.prepareStatement("DELETE FROM calendar WHERE leagueName = ?");
+        clearEvents.setString(1, league.getName());
+        clearEvents.executeUpdate();
+        clearEvents.close();
+
+
         PreparedStatement ps = connection.prepareStatement(
                 "INSERT OR REPLACE INTO leagues (name, predictedDrivers) VALUES (?, ?)");
         ps.setString(1, league.getName());
@@ -110,19 +123,26 @@ public class DatabaseManager {
 
             Location location = holo.getLocation();
 
-            // Extract league name from "league-holo-<leagueName><UUID>"
-            // Example: "league-holo-myLeague8f4c62d0-0a2e-4fd2-8d3a-4cbf687aabc5"
-            // So we strip "league-holo-" and then parse out the UUID
-            String nameWithoutPrefix = hologramName.substring("league-holo-".length());
-            int uuidStartIndex = nameWithoutPrefix.length() - 36; // UUID is 36 characters
-            String leagueName = nameWithoutPrefix.substring(0, uuidStartIndex);
+            // Format: league-holo-<leagueName>-<teamMode>-<UUID>
+            // Strip "league-holo-" and then split the rest
+            String stripped = hologramName.substring("league-holo-".length()); // e.g. realFc1-false-UUID
+            String[] parts = stripped.split("-", 3); // limit to 3 parts to handle league names with hyphens
 
-            holoStmt.setString(1, hologramName);
-            holoStmt.setString(2, leagueName);
-            holoStmt.setString(3, location.getWorld().getName());
-            holoStmt.setDouble(4, location.getX());
-            holoStmt.setDouble(5, location.getY());
-            holoStmt.setDouble(6, location.getZ());
+            if (parts.length < 3) {
+                System.err.println("Invalid hologram name format: " + hologramName);
+                continue;
+            }
+
+            String leagueName = parts[0];
+            String teamMode = parts[1];
+            String uuidPart = parts[2]; // not used for saving, but included in full name
+
+            holoStmt.setString(1, hologramName);                      // Full ID
+            holoStmt.setString(2, leagueName);                        // League name
+            holoStmt.setString(3, location.getWorld().getName());     // World
+            holoStmt.setDouble(4, location.getX());                   // X
+            holoStmt.setDouble(5, location.getY());                   // Y
+            holoStmt.setDouble(6, location.getZ());                   // Z
 
             holoStmt.addBatch();
         }
@@ -130,6 +150,7 @@ public class DatabaseManager {
         holoStmt.executeBatch();
         holoStmt.close();
     }
+
 
     public List<String> loadHolograms() throws SQLException {
         String sql = "SELECT id, leagueName, world, x, y, z FROM holograms";
@@ -153,16 +174,49 @@ public class DatabaseManager {
 
             Location location = new Location(world, x, y, z);
 
-            // Generate the standings to show in the hologram
-            Map<String, League> laMap= TImingLeague.getLeagueMap();
-            League league = laMap.get(leagueName);
+            Map<String, League> leagueMap = TImingLeague.getLeagueMap();
+            League league = leagueMap.get(leagueName);
             if (league == null) {
                 Bukkit.getLogger().warning("Could not load hologram '" + id + "': league '" + leagueName + "' not found.");
                 continue;
             }
 
+            // Extract the team mode from the hologram name
+            String stripped = id.substring("league-holo-".length()); // realFc1-false-UUID
+            String[] parts = stripped.split("-", 3); // [leagueName, teamMode, UUID]
+
+            if (parts.length < 3) {
+                Bukkit.getLogger().warning("Invalid hologram ID format: " + id);
+                continue;
+            }
+
+            String teamModeRaw = parts[1];
+            boolean teamMode = Boolean.parseBoolean(teamModeRaw);
+
             List<String> lines = new ArrayList<>();
-            lines.add(leagueName + " leaderboard");
+            lines.add("&c" + leagueName + " " + (teamMode ? "team" : "driver") + " leaderboard");
+
+            var standings = teamMode
+                    ? league.getTeamStandings().entrySet()
+                    : league.getDriverStandings().entrySet();
+
+            List<Map.Entry<String, Integer>> sorted = standings.stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                    .toList();
+
+            for (int i = 0; i < Math.min(15, sorted.size()); i++) {
+                var entry = sorted.get(i);
+                if (teamMode) {
+                    lines.add("&e#" + (i + 1) + ". &b" + entry.getKey() + " &7- &a" + entry.getValue() + " pts");
+                } else {
+                    String name = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey())).getName();
+                    lines.add("&e#" + (i + 1) + ". &b" + (name != null ? name : "Unknown") + " &7- &a" + entry.getValue() + " pts");
+                }
+            }
+
+            while (lines.size() < 15) {
+                lines.add("&e#" + (lines.size() + 1) + ". &7---");
+            }
 
             DHAPI.createHologram(id, location, false, lines);
             holoNames.add(id);
@@ -170,9 +224,9 @@ public class DatabaseManager {
 
         rs.close();
         stmt.close();
-
         return holoNames;
     }
+
 
 
     // i made chat gpt write this one because i am hopeless when it comes to sql keep an eye on this just in case

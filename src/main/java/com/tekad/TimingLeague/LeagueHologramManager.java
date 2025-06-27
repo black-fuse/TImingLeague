@@ -11,12 +11,12 @@ public class LeagueHologramManager {
     private Hologram hologram;
     private String hologramName;
 
-    public void createOrUpdateHologram(Location location, List<String> lines, String leagueName) {
+    public void createOrUpdateHologram(Location location, List<String> lines, String leagueName, boolean teamMode) {
         removeHologram();
 
         Location offset = location.clone();
         offset.setY(offset.getY() + 0.5);
-        this.hologramName = "league-holo-" + leagueName + UUID.randomUUID();
+        this.hologramName = "league-holo-" + leagueName + "-" + teamMode + "-" + UUID.randomUUID();
 
 
         hologram = DHAPI.createHologram(hologramName, offset, false, lines);

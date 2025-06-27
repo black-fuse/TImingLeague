@@ -1,4 +1,4 @@
-package com.tekad.TimingLeague;
+package com.tekad.TimingLeague.ScoringSystems;
 
 import java.util.Arrays;
 import java.util.List;

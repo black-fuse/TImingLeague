@@ -1,5 +1,7 @@
 package com.tekad.TimingLeague;
 
+import com.tekad.TimingLeague.ScoringSystems.BasicScoringSystem;
+import com.tekad.TimingLeague.ScoringSystems.ScoringSystem;
 import lombok.Getter;
 import lombok.Setter;
 

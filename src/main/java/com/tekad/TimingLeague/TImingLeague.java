@@ -51,13 +51,13 @@ public final class TImingLeague extends JavaPlugin {
         try {
             db.saveAllLeagues(leagueMap.values());
         } catch (SQLException e) {
-            getLogger().severe("Failed to save leagues: " + e.getMessage());
+            getLogger().severe("[TimingLeague] Failed to save leagues: " + e.getMessage());
         }
 
         try {
             db.saveHolograms(holograms);
         } catch (SQLException e) {
-            getLogger().severe("Failed to save holograms: " + e.getMessage());
+            getLogger().severe("[TimingLeague] Failed to save holograms: " + e.getMessage());
         }
     }
 
