@@ -13,3 +13,11 @@ commands:
     permission-message: You do not have permission to use this command.
     tab-completer: com.tekad.TimingLeague.commands.LeagueCommandCompleter
 
+permissions:
+  timingleague.admin:
+    description: Gives access to all TimingLeague commands
+    default: op
+
+  timingleague.view:
+    description: Allows viewing league info
+    default: true

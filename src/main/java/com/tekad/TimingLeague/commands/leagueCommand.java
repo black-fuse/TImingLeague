@@ -4,10 +4,12 @@ import com.tekad.TimingLeague.*;
 import com.tekad.TimingLeague.ScoringSystems.BasicScoringSystem;
 import com.tekad.TimingLeague.ScoringSystems.FC1ScoringSystem;
 import com.tekad.TimingLeague.ScoringSystems.FC2ScoringSystem;
+import com.tekad.TimingLeague.ScoringSystems.ScoringSystem;
 import eu.decentsoftware.holograms.api.DHAPI;
 import me.makkuusen.timing.system.api.EventResultsAPI;
 import me.makkuusen.timing.system.api.event.HeatResult;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
@@ -17,10 +19,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class leagueCommand implements CommandExecutor {
 
@@ -45,6 +44,11 @@ public class leagueCommand implements CommandExecutor {
 
         switch (subCommand) {
             case "create" -> {
+                if (!sender.hasPermission("timingleague.admin")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to create leagues.");
+                    return true;
+                }
+
                 if (args.length < 2) {
                     player.sendMessage("Usage: /league create <leagueName>");
                     return true;
@@ -59,6 +63,27 @@ public class leagueCommand implements CommandExecutor {
                 League league = new League(leagueName, 20);
                 leagues.put(leagueName, league);
                 player.sendMessage("Created league: " + leagueName);
+            }
+
+            case "delete" -> {
+                if (!sender.hasPermission("timingleague.admin")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to delete leagues.");
+                    return true;
+                }
+
+                if (args.length < 2) {
+                    player.sendMessage("Usage: /league delete <leagueName>");
+                    return true;
+                }
+
+                String leagueName = args[1];
+                if (!leagues.containsKey(leagueName)) {
+                    player.sendMessage("A league with that name does not exist.");
+                    return true;
+                }
+
+                leagues.remove(leagueName);
+                player.sendMessage("Deleted league: " + leagueName);
             }
 
             case "help" -> showHelp(player);
@@ -94,6 +119,11 @@ public class leagueCommand implements CommandExecutor {
                     }
 
                     case "update" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
                         try{
                             league.updateStandings();
 
@@ -104,6 +134,11 @@ public class leagueCommand implements CommandExecutor {
                     }
 
                     case "addevent" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
                         if (args.length < 3) {
                             player.sendMessage("Usage: /league <leagueName> addEvent <eventId>");
                             return true;
@@ -128,6 +163,11 @@ public class leagueCommand implements CommandExecutor {
                     }
 
                     case "updatewithheat" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
                         if (args.length < 4) {
                             player.sendMessage("Usage: /league <leagueName> updateWithHeat <eventId> <heatId>");
                             return true;
@@ -146,6 +186,11 @@ public class leagueCommand implements CommandExecutor {
                     }
 
                     case "scoring" ->{
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
                         if (args[2].equalsIgnoreCase("fc1")){
                             league.setScoringSystem(new FC1ScoringSystem());
                         }
@@ -160,7 +205,27 @@ public class leagueCommand implements CommandExecutor {
                         }
                     }
 
-                    case "standings" -> {
+                    case "predictedDrivers" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
+                        ScoringSystem system = league.getScoringSystem();
+
+                        if (args.length > 2) {
+                            try {
+                                int predictedDrivers = Integer.parseInt(args[2]);
+                                league.setPredictedDrivers(predictedDrivers);
+                            } catch (NumberFormatException e) {
+                                sender.sendMessage(ChatColor.RED + "Please provide a valid number for predicted drivers.");
+                            }
+                        } else{
+                            player.sendMessage("predicted Drivers: " + league.getPredictedDriverCount());
+                        }
+                    }
+
+                        case "standings" -> {
                         int page = 1;
                         boolean showTeams = false;
 
@@ -218,6 +283,11 @@ public class leagueCommand implements CommandExecutor {
                     }
 
                     case "holo" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
                         if (!(sender instanceof Player p)) {
                             sender.sendMessage("Only players can place holograms.");
                             return true;
@@ -271,10 +341,35 @@ public class leagueCommand implements CommandExecutor {
 
 
                     case "team" -> {
+                        //TODO: rework to allow only team owners to manage their own team
                         if (args.length < 3) {
                             player.sendMessage("Usage: /league <leagueName> team <create|color|add|remove|view> [arguments]");
                             return true;
                         }
+
+                        if (args[2].equalsIgnoreCase("list")) {
+                            Set<Team> teamsList = league.getTeams();
+
+                            if (teamsList.isEmpty()) {
+                                player.sendMessage("§cThere are no teams in this league.");
+                                return true;
+                            }
+
+                            StringBuilder toSend = new StringBuilder("§6== Teams List ==§r");
+
+                            for (Team team : teamsList) {
+                                String name = team.getName();
+                                String color = team.getColor(); // Assume this is in "#rrggbb" or "rrggbb" format
+
+                                String square = getColoredSquare(color);
+                                toSend.append("\n").append(square).append(" ").append(name);
+                            }
+
+                            player.sendMessage(toSend.toString());
+                            return true;
+                        }
+
+
 
                         String teamAction = args[2].toLowerCase();
 
@@ -554,5 +649,23 @@ public class leagueCommand implements CommandExecutor {
         return lines;
     }
 
+    private String getColoredSquare(String colorInput) {
+        // Normalize input
+        if (!colorInput.startsWith("#")) {
+            colorInput = "#" + colorInput;
+        }
 
+        // Validate format: must be exactly 7 characters and match hex pattern
+        if (!colorInput.matches("^#[0-9a-fA-F]{6}$")) {
+            return "§7■§r"; // fallback gray square
+        }
+
+        // Convert to §x§r§r§g§g§b§b format
+        StringBuilder colored = new StringBuilder("§x");
+        for (char c : colorInput.substring(1).toCharArray()) {
+            colored.append("§").append(c);
+        }
+
+        return colored + "■§r";
+    }
 }
