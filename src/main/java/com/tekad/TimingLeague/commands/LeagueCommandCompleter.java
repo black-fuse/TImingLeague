@@ -27,7 +27,7 @@ public class LeagueCommandCompleter implements TabCompleter {
 
         else if (args.length == 2 && leagues.containsKey(args[0])) {
             completions.addAll(List.of(
-                    "addDriver", "addEvent", "calendar", "update", "updateWithHeat",
+                    "addDriver", "addEvent", "calendar", "updateWithHeat",
                     "standings", "holo", "team", "scoring"
             ));
         }

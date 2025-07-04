@@ -35,6 +35,11 @@ public class leagueCommand implements CommandExecutor {
             return true;
         }
 
+        if (!sender.hasPermission("timingleague.view")) {
+            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+            return true;
+        }
+
         if (args.length == 0) {
             showHelp(player);
             return true;
@@ -191,16 +196,13 @@ public class leagueCommand implements CommandExecutor {
                             return true;
                         }
 
-                        if (args[2].equalsIgnoreCase("fc1")){
+                        if (args[2].equalsIgnoreCase("fc1")) {
                             league.setScoringSystem(new FC1ScoringSystem());
-                        }
-                        if (args[2].equalsIgnoreCase("fc2")){
+                        } else if (args[2].equalsIgnoreCase("fc2")) {
                             league.setScoringSystem(new FC2ScoringSystem());
-                        }
-                        if (args[2].equalsIgnoreCase("default")){
+                        } else if (args[2].equalsIgnoreCase("default")) {
                             league.setScoringSystem(new BasicScoringSystem());
-                        }
-                        else{
+                        } else {
                             player.sendMessage("not a valid scoring system");
                         }
                     }

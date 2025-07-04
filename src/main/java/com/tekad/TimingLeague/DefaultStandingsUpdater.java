@@ -5,7 +5,6 @@ import me.makkuusen.timing.system.api.event.DriverResult;
 import me.makkuusen.timing.system.api.event.EventResult;
 import me.makkuusen.timing.system.api.event.HeatResult;
 import me.makkuusen.timing.system.api.event.RoundResult;
-import me.makkuusen.timing.system.heat.Heat;
 
 import java.util.ArrayList;
 import java.util.List;

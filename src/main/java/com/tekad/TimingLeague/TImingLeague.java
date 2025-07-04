@@ -5,6 +5,7 @@ import com.tekad.TimingLeague.commands.leagueCommand;
 import lombok.Getter;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,7 +54,6 @@ public final class TImingLeague extends JavaPlugin {
         } catch (SQLException e) {
             getLogger().severe("[TimingLeague] Failed to save leagues: " + e.getMessage());
         }
-
         try {
             db.saveHolograms(holograms);
         } catch (SQLException e) {
@@ -71,5 +71,19 @@ public final class TImingLeague extends JavaPlugin {
 
     public void addHologram(String name){
         holograms.add(name);
+    }
+
+    public void exportLeagues(){
+        try{
+            File dbFile = new File("plugins/TImingLeague/leagues.db");
+            File exportFolder = new File("plugins/TImingLeague/exports");
+
+            if (!exportFolder.exists()) exportFolder.mkdirs();
+
+            db.exportDatabaseToCSV(dbFile, exportFolder);
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

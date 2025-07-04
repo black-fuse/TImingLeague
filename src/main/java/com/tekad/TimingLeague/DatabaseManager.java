@@ -8,6 +8,9 @@ import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.*;
 import java.util.*;
 
@@ -15,42 +18,42 @@ public class DatabaseManager {
     private final Plugin plugin;
     private Connection connection;
 
-    public DatabaseManager(Plugin plugin){
+    public DatabaseManager(Plugin plugin) {
         this.plugin = plugin;
     }
 
-    public void connect() throws SQLException{
+    public void connect() throws SQLException {
         File dbfile = new File(plugin.getDataFolder(), "leagues.db");
         connection = DriverManager.getConnection("jdbc:sqlite:" + dbfile.getAbsolutePath());
     }
 
-    public void createTables()  throws  SQLException{
+    public void createTables() throws SQLException {
         String sql = """
-            CREATE TABLE IF NOT EXISTS leagues (
-                name TEXT PRIMARY KEY,
-                predictedDrivers INTEGER
-            );
-            CREATE TABLE IF NOT EXISTS drivers (
-                leagueName TEXT,
-                uuid TEXT,
-                team TEXT,
-                int points,
-                FOREIGN KEY (leagueName) REFERENCES leagues(name)
-            );
-            CREATE TABLE IF NOT EXISTS calendar (
-                leagueName TEXT,
-                eventName TEXT
-            );
-            CREATE TABLE IF NOT EXISTS holograms (
-                        id TEXT PRIMARY KEY,
+                    CREATE TABLE IF NOT EXISTS leagues (
+                        name TEXT PRIMARY KEY,
+                        predictedDrivers INTEGER
+                    );
+                    CREATE TABLE IF NOT EXISTS drivers (
                         leagueName TEXT,
-                        world TEXT,
-                        x REAL,
-                        y REAL,
-                        z REAL,
+                        uuid TEXT,
+                        team TEXT,
+                        int points,
                         FOREIGN KEY (leagueName) REFERENCES leagues(name)
-            );
-        """;
+                    );
+                    CREATE TABLE IF NOT EXISTS calendar (
+                        leagueName TEXT,
+                        eventName TEXT
+                    );
+                    CREATE TABLE IF NOT EXISTS holograms (
+                                id TEXT PRIMARY KEY,
+                                leagueName TEXT,
+                                world TEXT,
+                                x REAL,
+                                y REAL,
+                                z REAL,
+                                FOREIGN KEY (leagueName) REFERENCES leagues(name)
+                    );
+                """;
 
         Statement stmt = connection.createStatement();
         stmt.executeUpdate(sql);
@@ -78,25 +81,23 @@ public class DatabaseManager {
         ps.close();
 
 
-
         PreparedStatement driverStmt = connection.prepareStatement(
                 "INSERT INTO drivers (leagueName, uuid, team, points) VALUES (?, ?, ?, ?)");
         for (String uuid : league.getDrivers()) {
             driverStmt.setString(1, league.getName());
             driverStmt.setString(2, uuid);
             driverStmt.setString(3, league.getTeamByDriver(uuid).getName());
-            driverStmt.setInt(4,league.getDriverPoints(uuid));
+            driverStmt.setInt(4, league.getDriverPoints(uuid));
             driverStmt.addBatch();
         }
         driverStmt.executeBatch();
         driverStmt.close();
 
 
-
         PreparedStatement calendarStmt = connection.prepareStatement(
                 "INSERT INTO calendar (leagueName, eventName) VALUES (?, ?)"
         );
-        for (String event : league.getCalendar()){
+        for (String event : league.getCalendar()) {
             calendarStmt.setString(1, league.getName());
             calendarStmt.setString(2, event);
             calendarStmt.addBatch();
@@ -108,7 +109,7 @@ public class DatabaseManager {
     }
 
     public void saveAllLeagues(Collection<League> leagues) throws SQLException {
-        for (League league : leagues){
+        for (League league : leagues) {
             saveLeague(league);
         }
     }
@@ -228,7 +229,6 @@ public class DatabaseManager {
     }
 
 
-
     // i made chat gpt write this one because i am hopeless when it comes to sql keep an eye on this just in case
     public League loadLeague(String name) throws SQLException {
         // Load base league info
@@ -304,4 +304,45 @@ public class DatabaseManager {
         return leagues;
     }
 
+    public void exportDatabaseToCSV(File dbFile, File outputFolder) throws SQLException, IOException {
+        Connection connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
+
+        // Get all table names
+        DatabaseMetaData meta = connection.getMetaData();
+        ResultSet tables = meta.getTables(null, null, "%", new String[]{"TABLE"});
+
+        while (tables.next()) {
+            String tableName = tables.getString("TABLE_NAME");
+            File csvFile = new File(outputFolder, tableName + ".csv");
+
+            try (
+                    PrintWriter writer = new PrintWriter(new FileWriter(csvFile));
+                    Statement stmt = connection.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT * FROM " + tableName)
+            ) {
+                ResultSetMetaData rsmd = rs.getMetaData();
+                int columnCount = rsmd.getColumnCount();
+
+                // Write header
+                for (int i = 1; i <= columnCount; i++) {
+                    writer.print(rsmd.getColumnName(i));
+                    if (i < columnCount) writer.print(",");
+                }
+                writer.println();
+
+                // Write rows
+                while (rs.next()) {
+                    for (int i = 1; i <= columnCount; i++) {
+                        writer.print(rs.getString(i));
+                        if (i < columnCount) writer.print(",");
+                    }
+                    writer.println();
+                }
+
+                System.out.println("Exported table: " + tableName + " -> " + csvFile.getName());
+            }
+        }
+
+        connection.close();
+    }
 }

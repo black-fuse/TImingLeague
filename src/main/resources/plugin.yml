@@ -9,7 +9,6 @@ commands:
     description: Main league command
     usage: /league
     aliases: []
-    permission: league.use
     permission-message: You do not have permission to use this command.
     tab-completer: com.tekad.TimingLeague.commands.LeagueCommandCompleter
 
