@@ -25,6 +25,7 @@ public final class TImingLeague extends JavaPlugin {
     public void onEnable() {
         // Ensure data folder exists before database file creation
         getDataFolder().mkdirs();
+        leagueCommand thing = new leagueCommand();
 
         // Database startup
         db = new DatabaseManager(this);
@@ -37,9 +38,17 @@ public final class TImingLeague extends JavaPlugin {
             getLogger().severe("[TimingLeague] Failed to connect to the database: " + e);
         }
 
+        try{
+            for (League league : leagueMap.values()){
+                thing.updateHolograms(league, 1, null);
+            }
+        } catch (Exception e) {
+            getLogger().severe("[TimingLeague] Failed to update holograms: " + e);
+        }
+
         // Command registration
         if (getCommand("league") != null) {
-            getCommand("league").setExecutor(new leagueCommand());
+            getCommand("league").setExecutor(thing);
             getCommand("league").setTabCompleter(new LeagueCommandCompleter());
         } else {
             getLogger().severe("Command 'league' not found in plugin.yml!");

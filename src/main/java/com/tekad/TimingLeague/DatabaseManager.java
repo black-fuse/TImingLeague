@@ -33,12 +33,22 @@ public class DatabaseManager {
                         name TEXT PRIMARY KEY,
                         predictedDrivers INTEGER
                     );
+                    CREATE TABLE IF NOT EXISTS teams (
+                        leagueName TEXT,
+                        name TEXT,
+                        color TEXT,
+                        owner TEXT,
+                        PRIMARY KEY (leagueName, name),
+                        FOREIGN KEY (leagueName) REFERENCES leagues(name)
+                    );
                     CREATE TABLE IF NOT EXISTS drivers (
                         leagueName TEXT,
                         uuid TEXT,
                         team TEXT,
-                        int points,
-                        FOREIGN KEY (leagueName) REFERENCES leagues(name)
+                        role TEXT,  -- 'main', 'reserve', or 'none'
+                        points INTEGER,
+                        FOREIGN KEY (leagueName) REFERENCES leagues(name),
+                        FOREIGN KEY (leagueName, team) REFERENCES teams(leagueName, name)
                     );
                     CREATE TABLE IF NOT EXISTS calendar (
                         leagueName TEXT,
@@ -61,52 +71,95 @@ public class DatabaseManager {
     }
 
     public void saveLeague(League league) throws SQLException {
+        connection.setAutoCommit(false); // start transaction
 
-        PreparedStatement clearDrivers = connection.prepareStatement("DELETE FROM drivers WHERE leagueName = ?");
-        clearDrivers.setString(1, league.getName());
-        clearDrivers.executeUpdate();
-        clearDrivers.close();
+        try {
+            // 1. Save league info
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers) VALUES (?, ?)")) {
+                ps.setString(1, league.getName());
+                ps.setInt(2, league.getPredictedDriverCount());
+                ps.executeUpdate();
+            }
 
-        PreparedStatement clearEvents = connection.prepareStatement("DELETE FROM calendar WHERE leagueName = ?");
-        clearEvents.setString(1, league.getName());
-        clearEvents.executeUpdate();
-        clearEvents.close();
+            // 2. Clear old teams, drivers, and calendar
+            try (PreparedStatement clearTeams = connection.prepareStatement("DELETE FROM teams WHERE leagueName = ?");
+                 PreparedStatement clearDrivers = connection.prepareStatement("DELETE FROM drivers WHERE leagueName = ?");
+                 PreparedStatement clearCalendar = connection.prepareStatement("DELETE FROM calendar WHERE leagueName = ?")) {
 
+                clearTeams.setString(1, league.getName());
+                clearTeams.executeUpdate();
 
-        PreparedStatement ps = connection.prepareStatement(
-                "INSERT OR REPLACE INTO leagues (name, predictedDrivers) VALUES (?, ?)");
-        ps.setString(1, league.getName());
-        ps.setInt(2, league.getPredictedDriverCount());
-        ps.executeUpdate();
-        ps.close();
+                clearDrivers.setString(1, league.getName());
+                clearDrivers.executeUpdate();
 
+                clearCalendar.setString(1, league.getName());
+                clearCalendar.executeUpdate();
+            }
 
-        PreparedStatement driverStmt = connection.prepareStatement(
-                "INSERT INTO drivers (leagueName, uuid, team, points) VALUES (?, ?, ?, ?)");
-        for (String uuid : league.getDrivers()) {
-            driverStmt.setString(1, league.getName());
-            driverStmt.setString(2, uuid);
-            driverStmt.setString(3, league.getTeamByDriver(uuid).getName());
-            driverStmt.setInt(4, league.getDriverPoints(uuid));
-            driverStmt.addBatch();
+            // 3. Save teams
+            Set<String> insertedTeams = new HashSet<>();
+            try (PreparedStatement teamStmt = connection.prepareStatement(
+                    "INSERT OR REPLACE INTO teams (leagueName, name, color, owner) VALUES (?, ?, ?, ?)")) {
+
+                for (Team team : league.getTeams()) {
+                    if (!insertedTeams.add(team.getName())) continue; // skip duplicates
+
+                    teamStmt.setString(1, league.getName());
+                    teamStmt.setString(2, team.getName());
+                    teamStmt.setString(3, team.getColor());
+                    teamStmt.setString(4, team.getOwner());
+                    teamStmt.addBatch();
+                }
+
+                teamStmt.executeBatch();
+            }
+
+            // 4. Save drivers
+            try (PreparedStatement driverStmt = connection.prepareStatement(
+                    "INSERT INTO drivers (leagueName, uuid, team, role, points) VALUES (?, ?, ?, ?, ?)")) {
+
+                for (String uuid : league.getDrivers()) {
+                    Team team = league.getTeamByDriver(uuid);
+                    if (team == null) continue; // skip drivers without a team
+
+                    String role = "none";
+                    if (team.isMain(uuid)) role = "main";
+                    else if (team.isReserve(uuid)) role = "reserve";
+
+                    driverStmt.setString(1, league.getName());
+                    driverStmt.setString(2, uuid);
+                    driverStmt.setString(3, team.getName());
+                    driverStmt.setString(4, role);
+                    driverStmt.setInt(5, league.getDriverPoints(uuid));
+                    driverStmt.addBatch();
+                }
+
+                driverStmt.executeBatch();
+            }
+
+            // 5. Save calendar
+            try (PreparedStatement calendarStmt = connection.prepareStatement(
+                    "INSERT INTO calendar (leagueName, eventName) VALUES (?, ?)")) {
+
+                for (String event : league.getCalendar()) {
+                    calendarStmt.setString(1, league.getName());
+                    calendarStmt.setString(2, event);
+                    calendarStmt.addBatch();
+                }
+
+                calendarStmt.executeBatch();
+            }
+
+            connection.commit(); // commit transaction
+        } catch (SQLException e) {
+            connection.rollback(); // rollback on error
+            throw e;
+        } finally {
+            connection.setAutoCommit(true); // restore default
         }
-        driverStmt.executeBatch();
-        driverStmt.close();
-
-
-        PreparedStatement calendarStmt = connection.prepareStatement(
-                "INSERT INTO calendar (leagueName, eventName) VALUES (?, ?)"
-        );
-        for (String event : league.getCalendar()) {
-            calendarStmt.setString(1, league.getName());
-            calendarStmt.setString(2, event);
-            calendarStmt.addBatch();
-        }
-        calendarStmt.executeBatch();
-        calendarStmt.close();
-
-
     }
+
 
     public void saveAllLeagues(Collection<League> leagues) throws SQLException {
         for (League league : leagues) {
@@ -246,30 +299,57 @@ public class DatabaseManager {
         League league = new League(name, predictedDrivers);
         leagueStmt.close();
 
-        // Load drivers and teams
+        // Load teams
+        PreparedStatement teamStmt = connection.prepareStatement(
+                "SELECT * FROM teams WHERE leagueName = ?"
+        );
+        teamStmt.setString(1, name);
+        ResultSet teamResult = teamStmt.executeQuery();
+
+        while (teamResult.next()) {
+            String teamName = teamResult.getString("name");
+            String color = teamResult.getString("color");
+            String owner = teamResult.getString("owner");
+
+            Team team = new Team(teamName, color, league);
+            team.setOwner(owner);
+            league.addTeam(team);
+        }
+        teamStmt.close();
+
+// Load drivers
         PreparedStatement driverStmt = connection.prepareStatement(
-                "SELECT * FROM drivers WHERE leagueName = ?");
+                "SELECT * FROM drivers WHERE leagueName = ?"
+        );
         driverStmt.setString(1, name);
         ResultSet driverResult = driverStmt.executeQuery();
 
         while (driverResult.next()) {
             String uuid = driverResult.getString("uuid");
             String teamName = driverResult.getString("team");
+            String role = driverResult.getString("role");
             int points = driverResult.getInt("points");
 
             Team team = league.getTeams().stream()
                     .filter(t -> t.getName().equalsIgnoreCase(teamName))
                     .findFirst()
                     .orElseGet(() -> {
-                        Team newTeam = new Team(teamName, "ffffff", league); // default color
+                        Team newTeam = new Team(teamName, "ffffff", league);
                         league.addTeam(newTeam);
                         return newTeam;
                     });
 
             league.addDriver(uuid, team);
+            if ("main".equalsIgnoreCase(role)) {
+                team.addMainDriver(uuid);
+            } else if ("reserve".equalsIgnoreCase(role)) {
+                team.addReserveDriver(uuid);
+            }
+
             league.setDriverPoints(uuid, points);
         }
         driverStmt.close();
+
 
         // Load calendar
         PreparedStatement calendarStmt = connection.prepareStatement(

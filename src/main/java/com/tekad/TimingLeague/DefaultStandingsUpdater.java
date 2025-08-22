@@ -6,10 +6,7 @@ import me.makkuusen.timing.system.api.event.EventResult;
 import me.makkuusen.timing.system.api.event.HeatResult;
 import me.makkuusen.timing.system.api.event.RoundResult;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class DefaultStandingsUpdater implements StandingsUpdater {
     @Override
@@ -41,26 +38,64 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
         }
     }
 
-    public void updateStandingsWithHeat(HeatResult heat, League league){
+    public void updateStandingsWithHeat(HeatResult heat, League league) {
         Map<String, Team> driversList = league.getDriversList();
-
         List<DriverResult> drivers = heat.getDriverResultList();
         int driverCount = drivers.size();
 
-        for (DriverResult driver : heat.getDriverResultList()) {
-            String DriverUUID = driver.getUuid();
+        // Award individual points to all drivers
+        for (DriverResult driver : drivers) {
+            String driverUUID = driver.getUuid();
 
-            if (!driversList.containsKey(DriverUUID)) {
-                league.addDriver(DriverUUID, league.NoTeam);
+            if (!driversList.containsKey(driverUUID)) {
+                league.addDriver(driverUUID, league.NoTeam);
             }
 
-            Team DriversTeam = driversList.getOrDefault(DriverUUID, league.NoTeam);
-
             int points = league.getScoringSystem().getPointsForPosition(driver.getPosition(), driverCount);
-            league.addPointsToDriver(DriverUUID, points);
-            league.addPointsToTeam(DriversTeam.getName(), points);
+            league.addPointsToDriver(driverUUID, points);
+        }
+
+        // Handle team points
+        for (Team team : league.getTeams()) {
+            Set<String> mainDrivers = team.getMainDrivers();
+            Set<String> reserveDrivers = team.getReserveDrivers();
+
+            int missingMains = 0;
+
+            // Award points for mains
+            for (String driverUUID : mainDrivers) {
+                DriverResult result = drivers.stream()
+                        .filter(d -> d.getUuid().equals(driverUUID))
+                        .findFirst()
+                        .orElse(null);
+
+                if (result != null) {
+                    int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
+                    league.addPointsToTeam(team.getName(), points);
+                } else {
+                    missingMains++;
+                }
+            }
+
+            // Fill missing slots with reserves
+            int filledReserves = 0;
+            for (String driverUUID : reserveDrivers) {
+                if (filledReserves >= missingMains) break;
+
+                DriverResult result = drivers.stream()
+                        .filter(d -> d.getUuid().equals(driverUUID))
+                        .findFirst()
+                        .orElse(null);
+
+                if (result != null) {
+                    int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
+                    league.addPointsToTeam(team.getName(), points);
+                    filledReserves++;
+                }
+            }
         }
     }
+
 
 
     public HeatResult getHeatResults(String event, String heatId) {

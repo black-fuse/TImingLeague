@@ -18,6 +18,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -227,7 +228,34 @@ public class leagueCommand implements CommandExecutor {
                         }
                     }
 
-                        case "standings" -> {
+                    case "points" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
+                        if (args.length < 4) {
+                            sender.sendMessage(ChatColor.RED + "Format: /league <leaguename> points <driver> <+/-num>");
+                            return true;
+                        }
+
+                        int points;
+                        try {
+                            points = Integer.parseInt(args[3]);
+                        } catch (NumberFormatException e) {
+                            sender.sendMessage(ChatColor.RED + "Invalid number: " + args[3]);
+                            return true;
+                        }
+
+                        OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
+                        String uuid = target.getUniqueId().toString();
+
+                        league.addPointsToDriver(uuid, points);
+                        createOrUpdateHolograms(league, 1, player, "update");
+                        updateHolograms(league,1, player);
+                    }
+
+                    case "standings" -> {
                         int page = 1;
                         boolean showTeams = false;
 
@@ -343,39 +371,33 @@ public class leagueCommand implements CommandExecutor {
 
 
                     case "team" -> {
-                        //TODO: rework to allow only team owners to manage their own team
+                        // TODO: Only allow team owners to manage their own team
                         if (args.length < 3) {
-                            player.sendMessage("Usage: /league <leagueName> team <create|color|add|remove|view> [arguments]");
+                            player.sendMessage("Usage: /league <leagueName> team <create|color|add|remove|view|list> [arguments]");
                             return true;
                         }
 
-                        if (args[2].equalsIgnoreCase("list")) {
-                            Set<Team> teamsList = league.getTeams();
+                        String teamAction = args[2].toLowerCase();
 
+                        // ===== List Teams =====
+                        if (teamAction.equals("list")) {
+                            Set<Team> teamsList = league.getTeams();
                             if (teamsList.isEmpty()) {
                                 player.sendMessage("§cThere are no teams in this league.");
                                 return true;
                             }
 
                             StringBuilder toSend = new StringBuilder("§6== Teams List ==§r");
-
                             for (Team team : teamsList) {
-                                String name = team.getName();
-                                String color = team.getColor(); // Assume this is in "#rrggbb" or "rrggbb" format
-
-                                String square = getColoredSquare(color);
-                                toSend.append("\n").append(square).append(" ").append(name);
+                                String square = getColoredSquare(team.getColor());
+                                toSend.append("\n").append(square).append(" ").append(team.getName());
                             }
-
                             player.sendMessage(toSend.toString());
                             return true;
                         }
 
-
-
-                        String teamAction = args[2].toLowerCase();
-
                         switch (teamAction) {
+                            // ===== Create =====
                             case "create" -> {
                                 if (args.length < 4) {
                                     player.sendMessage("Usage: /league <leagueName> team create <teamName> [hexColor]");
@@ -394,6 +416,7 @@ public class leagueCommand implements CommandExecutor {
                                 player.sendMessage("Created team: " + teamName + " with color #" + color);
                             }
 
+                            // ===== Change Color =====
                             case "color" -> {
                                 if (args.length < 5) {
                                     player.sendMessage("Usage: /league <leagueName> team color <teamName> <hexColor>");
@@ -410,9 +433,10 @@ public class leagueCommand implements CommandExecutor {
                                 player.sendMessage("Updated team color to #" + args[4]);
                             }
 
+                            // ===== Add Member =====
                             case "add" -> {
-                                if (args.length < 5) {
-                                    player.sendMessage("Usage: /league <leagueName> team add <teamName> <playerName>");
+                                if (args.length < 6) {
+                                    player.sendMessage("Usage: /league <leagueName> team add <teamName> <main|reserve> <playerName>");
                                     return true;
                                 }
 
@@ -422,13 +446,28 @@ public class leagueCommand implements CommandExecutor {
                                     return true;
                                 }
 
-                                OfflinePlayer target = Bukkit.getOfflinePlayer(args[4]);
+                                String type = args[4].toLowerCase();
+                                OfflinePlayer target = Bukkit.getOfflinePlayer(args[5]);
                                 String uuid = target.getUniqueId().toString();
 
-                                league.addDriver(uuid, team);
-                                player.sendMessage("Added player to team: " + args[4]);
+                                boolean success;
+                                if (type.equals("main")) {
+                                    success = team.addMainDriver(uuid);
+                                } else if (type.equals("reserve")) {
+                                    success = team.addReserveDriver(uuid);
+                                } else {
+                                    player.sendMessage("Invalid type. Use 'main' or 'reserve'.");
+                                    return true;
+                                }
+
+                                if (success) {
+                                    player.sendMessage("Added " + target.getName() + " to team " + team.getName() + " as " + type + ".");
+                                } else {
+                                    player.sendMessage("Could not add player (team full or already in team).");
+                                }
                             }
 
+                            // ===== Remove Member =====
                             case "remove" -> {
                                 if (args.length < 5) {
                                     player.sendMessage("Usage: /league <leagueName> team remove <teamName> <playerName>");
@@ -444,15 +483,16 @@ public class leagueCommand implements CommandExecutor {
                                 OfflinePlayer target = Bukkit.getOfflinePlayer(args[4]);
                                 String uuid = target.getUniqueId().toString();
 
-                                if (!team.getMembers().contains(uuid)) {
+                                if (!team.isMember(uuid)) {
                                     player.sendMessage("Player is not in that team.");
                                     return true;
                                 }
 
-                                league.addDriver(uuid, league.NoTeam); // move to NoTeam
-                                player.sendMessage("Removed player from team: " + args[4]);
+                                team.removeMember(uuid);
+                                player.sendMessage("Removed player " + target.getName() + " from team " + team.getName() + ".");
                             }
 
+                            // ===== View Team =====
                             case "view" -> {
                                 if (args.length < 4) {
                                     player.sendMessage("Usage: /league <leagueName> team view <teamName>");
@@ -465,38 +505,18 @@ public class leagueCommand implements CommandExecutor {
                                     return true;
                                 }
 
-                                StringBuilder sb = new StringBuilder();
-                                sb.append("=== ").append(team.getName()).append(" ===\n");
-                                sb.append("Color: #").append(team.getColor()).append("\n");
-                                sb.append("Members:\n");
-
-                                for (String uuid : team.getMembers()) {
-                                    OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
-                                    sb.append("- ").append(member.getName()).append("\n");
-                                }
-
-                                player.sendMessage(sb.toString());
+                                sendTeamDetails(player, team);
                             }
 
+                            // ===== Default: shorthand view =====
                             default -> {
-                                // Shorthand: /league <league> team <teamName>
                                 Team team = league.getTeam(args[2]);
                                 if (team == null) {
                                     player.sendMessage("Team not found: " + args[2]);
                                     return true;
                                 }
 
-                                StringBuilder sb = new StringBuilder();
-                                sb.append("=== ").append(team.getName()).append(" ===\n");
-                                sb.append("Color: #").append(team.getColor()).append("\n");
-                                sb.append("Members:\n");
-
-                                for (String uuid : team.getMembers()) {
-                                    OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
-                                    sb.append("- ").append(member.getName()).append("\n");
-                                }
-
-                                player.sendMessage(sb.toString());
+                                sendTeamDetails(player, team);
                             }
                         }
                     }
@@ -535,6 +555,30 @@ public class leagueCommand implements CommandExecutor {
         """);
     }
 
+    private void sendTeamDetails(Player player, Team team) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== ").append(team.getName()).append(" ===\n");
+        sb.append("Color: #").append(team.getColor()).append("\n");
+
+        sb.append("Main Drivers:\n");
+        for (String uuid : team.getMainDrivers()) {
+            OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
+            sb.append("- ").append(member.getName()).append("\n");
+        }
+
+        sb.append("Reserve Drivers:\n");
+        for (String uuid : team.getReserveDrivers()) {
+            OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
+            sb.append("- ").append(member.getName()).append("\n");
+        }
+
+        if (team.getOwner() != null) {
+            OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(team.getOwner()));
+            sb.append("Owner: ").append(owner.getName()).append("\n");
+        }
+
+        player.sendMessage(sb.toString());
+    }
 
     private boolean createOrUpdateHolograms(League league, int page, Player player, String argument) {
         boolean teamMode = argument.equalsIgnoreCase("team");
@@ -598,7 +642,49 @@ public class leagueCommand implements CommandExecutor {
         return true;
     }
 
-    private List<String> generateDriverLines(League league, String leagueName, int start, int pageSize, Player player) {
+    public boolean updateHolograms(League league, int page, @Nullable Player player) {
+        String leagueName = league.getName();
+        int pageSize = 15;
+        int start = (page - 1) * pageSize;
+
+        LeagueHologramManager manager = new LeagueHologramManager();
+
+        String prefix = "league-holo-" + leagueName;
+
+        // Collect matching holograms
+        List<String> updateWithDriver = new ArrayList<>();
+        List<String> updateWithTeam = new ArrayList<>();
+
+        for (String hologram : holograms) {
+            if (hologram.startsWith(prefix + "-false")) {
+                updateWithDriver.add(hologram);
+            }
+            if (hologram.startsWith(prefix + "-true")) {
+                updateWithTeam.add(hologram);
+            }
+        }
+
+        // Generate lines ONCE for each type
+        List<String> driverLines = generateDriverLines(league, leagueName, start, pageSize, player);
+        List<String> teamLines = generateTeamLines(league, leagueName, start, pageSize, player);
+
+        if (driverLines == null || teamLines == null) {
+            return true; // Page out of range
+        }
+
+        for (String hologram : updateWithDriver) {
+            manager.updateExistingHologram(hologram, driverLines);
+        }
+
+        for (String hologram : updateWithTeam) {
+            manager.updateExistingHologram(hologram, teamLines);
+        }
+
+        return true;
+    }
+
+
+    private List<String> generateDriverLines(League league, String leagueName, int start, int pageSize, @Nullable Player player) {
         List<String> lines = new ArrayList<>();
         lines.add("&c" + leagueName + " Driver Leaderboard");
 
@@ -607,7 +693,7 @@ public class leagueCommand implements CommandExecutor {
                 .toList();
 
         if (start >= standings.size()) {
-            player.sendMessage("Page out of range.");
+            if (player != null) player.sendMessage("Page out of range.");
             return null;
         }
 
@@ -625,7 +711,7 @@ public class leagueCommand implements CommandExecutor {
         return lines;
     }
 
-    private List<String> generateTeamLines(League league, String leagueName, int start, int pageSize, Player player) {
+    private List<String> generateTeamLines(League league, String leagueName, int start, int pageSize, @Nullable Player player) {
         List<String> lines = new ArrayList<>();
         lines.add("&c" + leagueName + " Team Leaderboard");
 
@@ -634,7 +720,7 @@ public class leagueCommand implements CommandExecutor {
                 .toList();
 
         if (start >= standings.size()) {
-            player.sendMessage("Page out of range.");
+            if (player != null) player.sendMessage("Page out of range.");
             return null;
         }
 
