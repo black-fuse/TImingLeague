@@ -102,6 +102,12 @@ public class League {
 
     public void addPointsToTeam(String team, int points){
         teamStandings.put(team, teamStandings.getOrDefault(team, 0) + points);
+
+        for (Team daTeam : teamsList){
+            if (team.equals(daTeam.getName())){
+                daTeam.setPoints(teamStandings.get(team));
+            }
+        }
     }
 
     public Team getTeamByDriver(String driver){

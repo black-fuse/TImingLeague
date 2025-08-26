@@ -13,6 +13,7 @@ public class Team {
     private final Set<String> reserveDrivers = new HashSet<>();
 
     private String teamOwner;
+    private int points;
 
     private final int maxMains = 2;
     private final int maxReserves = 2;
@@ -66,6 +67,14 @@ public class Team {
 
     public void setOwner(String uuid) {
         this.teamOwner = uuid;
+    }
+
+    public int getPoints() {
+        return points;
+    }
+
+    public void setPoints(int points){
+        this.points = points;
     }
 
     // ======== Membership Handling ========

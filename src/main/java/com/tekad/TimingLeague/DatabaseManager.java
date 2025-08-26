@@ -38,6 +38,7 @@ public class DatabaseManager {
                         name TEXT,
                         color TEXT,
                         owner TEXT,
+                        points INT,
                         PRIMARY KEY (leagueName, name),
                         FOREIGN KEY (leagueName) REFERENCES leagues(name)
                     );
@@ -100,7 +101,7 @@ public class DatabaseManager {
             // 3. Save teams
             Set<String> insertedTeams = new HashSet<>();
             try (PreparedStatement teamStmt = connection.prepareStatement(
-                    "INSERT OR REPLACE INTO teams (leagueName, name, color, owner) VALUES (?, ?, ?, ?)")) {
+                    "INSERT OR REPLACE INTO teams (leagueName, name, color, owner, points) VALUES (?, ?, ?, ?, ?)")) {
 
                 for (Team team : league.getTeams()) {
                     if (!insertedTeams.add(team.getName())) continue; // skip duplicates
@@ -109,6 +110,7 @@ public class DatabaseManager {
                     teamStmt.setString(2, team.getName());
                     teamStmt.setString(3, team.getColor());
                     teamStmt.setString(4, team.getOwner());
+                    teamStmt.setInt(5, team.getPoints());
                     teamStmt.addBatch();
                 }
 
@@ -191,12 +193,12 @@ public class DatabaseManager {
             String teamMode = parts[1];
             String uuidPart = parts[2]; // not used for saving, but included in full name
 
-            holoStmt.setString(1, hologramName);                      // Full ID
-            holoStmt.setString(2, leagueName);                        // League name
-            holoStmt.setString(3, location.getWorld().getName());     // World
-            holoStmt.setDouble(4, location.getX());                   // X
-            holoStmt.setDouble(5, location.getY());                   // Y
-            holoStmt.setDouble(6, location.getZ());                   // Z
+            holoStmt.setString(1, hologramName);
+            holoStmt.setString(2, leagueName);
+            holoStmt.setString(3, location.getWorld().getName());
+            holoStmt.setDouble(4, location.getX());
+            holoStmt.setDouble(5, location.getY());
+            holoStmt.setDouble(6, location.getZ());
 
             holoStmt.addBatch();
         }
@@ -310,14 +312,17 @@ public class DatabaseManager {
             String teamName = teamResult.getString("name");
             String color = teamResult.getString("color");
             String owner = teamResult.getString("owner");
+            String StrPoints =  (teamResult.getString("points"));
+            int points = Integer.parseInt(StrPoints);
 
             Team team = new Team(teamName, color, league);
             team.setOwner(owner);
+            league.addPointsToTeam(team.getName(), points);
             league.addTeam(team);
         }
         teamStmt.close();
 
-// Load drivers
+        // Load drivers
         PreparedStatement driverStmt = connection.prepareStatement(
                 "SELECT * FROM drivers WHERE leagueName = ?"
         );
