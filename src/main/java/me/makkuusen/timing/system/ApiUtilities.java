@@ -266,7 +266,7 @@ public class ApiUtilities {
 
     public static String formatAsTime(long time) {
         String toReturn;
-        long timeInMillis = getRoundedToTick(time);
+        long timeInMillis = time;
         long hours = TimeUnit.MILLISECONDS.toHours(timeInMillis);
         long minutes = TimeUnit.MILLISECONDS.toMinutes(timeInMillis) % TimeUnit.HOURS.toMinutes(1);
         long seconds = TimeUnit.MILLISECONDS.toSeconds(timeInMillis) % TimeUnit.MINUTES.toSeconds(1);

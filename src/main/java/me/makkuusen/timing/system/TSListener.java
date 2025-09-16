@@ -543,7 +543,7 @@ public class TSListener implements Listener {
             for (var r : startRegions) {
                 if (r.contains(player.getLocation())) {
                     if (timeTrial.getLatestCheckpoint() != 0) {
-                        timeTrial.playerRestartMap();
+                        timeTrial.playerRestartMap(e.getFrom(), e.getTo(), r);
                         return;
                     }
                 }
@@ -552,7 +552,7 @@ public class TSListener implements Listener {
             for (var r : endRegions) {
                 if (r.contains(player.getLocation())) {
                     if (timeTrial.getLatestCheckpoint() != 0) {
-                        timeTrial.playerEndedMap();
+                        timeTrial.playerEndedMap(e.getFrom(), e.getTo(), r);
                         return;
                     }
                 }

@@ -18,6 +18,7 @@ import me.makkuusen.timing.system.track.medals.Medals;
 import me.makkuusen.timing.system.track.regions.TrackRegion;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Boat;
@@ -98,12 +99,12 @@ public class TimeTrial {
 
     public List<Long> getCheckpointTimes() {
         List<Long> checkpointTimes = new ArrayList<>();
-        checkpoints.forEach(checkpoint -> checkpointTimes.add(ApiUtilities.getRoundedToTick(getTimeSinceStart(checkpoint))));
+        checkpoints.forEach(checkpoint -> checkpointTimes.add(getTimeSinceStart(checkpoint)));
         return checkpointTimes;
     }
 
     public long getCurrentTime() {
-        return Duration.between(startTime, Instant.now()).toMillis();
+        return getTimeSinceStart(TimingSystem.currentTime);
     }
 
     public long getTimeSinceStart(Instant time) {
@@ -155,7 +156,7 @@ public class TimeTrial {
         ApiUtilities.msgConsole(tPlayer.getName() + " passed checkpoint " + getLatestCheckpoint() + " on " + track.getDisplayName() + " with a time of " + ApiUtilities.formatAsTime(timeSinceStart));
     }
 
-    public void playerPassingNextCheckpoint(org.bukkit.Location from, org.bukkit.Location to, me.makkuusen.timing.system.track.regions.TrackRegion checkpoint) {
+    public void playerPassingNextCheckpoint(Location from, Location to, TrackRegion checkpoint) {
         // Calculate precise timing by finding the exact point where player enters the checkpoint
         Instant preciseTime = TimingSystem.currentTime;
         double proportion = calculateRegionEntryProportion(from, to, checkpoint);
@@ -164,7 +165,7 @@ public class TimeTrial {
         preciseTime = preciseTime.minusNanos(adjustmentNanos);
         
         passNextCheckpoint(preciseTime);
-        long timeSinceStart = getTimeSinceStart(preciseTime); // Use precise time without rounding
+        long timeSinceStart = getTimeSinceStart(preciseTime);
         if (tPlayer.getSettings().isVerbose()) {
             Component delta = getBestLapDelta(tPlayer.getTheme(), getLatestCheckpoint());
             tPlayer.getPlayer().sendMessage(Text.get(tPlayer.getPlayer(), Info.TIME_TRIAL_CHECKPOINT, "%checkpoint%", String.valueOf(getLatestCheckpoint()), "%time%", ApiUtilities.formatAsTime(timeSinceStart)).append(delta));
@@ -227,12 +228,53 @@ public class TimeTrial {
         TimeTrialController.timeTrials.remove(player.getUniqueId());
     }
 
+    public void playerEndedMap(Location from, Location to, TrackRegion endRegion) {
+        // Calculate precise timing by finding the exact point where player enters the end region
+        Instant preciseEndTime = TimingSystem.currentTime;
+        double proportion = calculateRegionEntryProportion(from, to, endRegion);
+        long tickDurationNanos = 50_000_000L; // 50ms in nanoseconds (1 tick = 50ms)
+        long adjustmentNanos = (long) ((1.0 - proportion) * tickDurationNanos);
+        preciseEndTime = preciseEndTime.minusNanos(adjustmentNanos);
+
+        Player player = tPlayer.getPlayer();
+
+        if (validateFinish(player)) {
+            long timeTrialTime = getTimeSinceStart(preciseEndTime); // Use precise time without rounding
+            saveAndAnnounceFinish(player, timeTrialTime);
+            ApiUtilities.msgConsole(player.getName() + " finished " + track.getDisplayName() + " with a time of " + ApiUtilities.formatAsTime(timeTrialTime));
+        }
+        TimeTrialController.timeTrials.remove(player.getUniqueId());
+    }
+
     public void playerRestartMap() {
         Instant endTime = TimingSystem.currentTime;
         Player player = tPlayer.getPlayer();
 
         if (validateFinish(player)){
             long timeTrialTime = ApiUtilities.getRoundedToTick(getTimeSinceStart(endTime));
+            saveAndAnnounceFinish(player, timeTrialTime);
+            ApiUtilities.msgConsole(player.getName() + " finished " + track.getDisplayName() + " with a time of " + ApiUtilities.formatAsTime(timeTrialTime));
+        }
+
+        if (!track.isOpen() && !tPlayer.getSettings().isOverride()) {
+            TimeTrialController.timeTrials.remove(player.getUniqueId());
+        } else {
+            resetTimeTrial();
+        }
+    }
+
+    public void playerRestartMap(Location from, Location to, TrackRegion startRegion) {
+        // Calculate precise timing by finding the exact point where player enters the start region
+        Instant preciseEndTime = TimingSystem.currentTime;
+        double proportion = calculateRegionEntryProportion(from, to, startRegion);
+        long tickDurationNanos = 50_000_000L; // 50ms in nanoseconds (1 tick = 50ms)
+        long adjustmentNanos = (long) ((1.0 - proportion) * tickDurationNanos);
+        preciseEndTime = preciseEndTime.minusNanos(adjustmentNanos);
+
+        Player player = tPlayer.getPlayer();
+
+        if (validateFinish(player)){
+            long timeTrialTime = getTimeSinceStart(preciseEndTime); // Use precise time without rounding
             saveAndAnnounceFinish(player, timeTrialTime);
             ApiUtilities.msgConsole(player.getName() + " finished " + track.getDisplayName() + " with a time of " + ApiUtilities.formatAsTime(timeTrialTime));
         }
@@ -318,7 +360,6 @@ public class TimeTrial {
             finish = callTimeTrialFinishEvent(player, timeTrialTime, bestFinish.getTime(), false);
             finishMessage = Text.get(player, Info.TIME_TRIAL_FINISH, "%track%", track.getDisplayName(), "%time%", ApiUtilities.formatAsTime(timeTrialTime), "%delta%", ApiUtilities.formatAsPersonalGap(timeTrialTime - bestFinish.getTime()));
             finishMessage = tPlayer.getTheme().getCheckpointHovers(finish, track.getTimeTrials().getBestFinish(tPlayer), finishMessage);
-
         }
 
         player.sendMessage(finishMessage);
@@ -373,7 +414,7 @@ public class TimeTrial {
                 if (getBestFinish().getDate() > getTrack().getDateChanged()) {
                     var bestCheckpoint = getBestFinish().getCheckpointTime(latestCheckpoint);
                     var currentCheckpoint = getCheckpointTime(latestCheckpoint);
-                    if (ApiUtilities.getRoundedToTick(bestCheckpoint) < ApiUtilities.getRoundedToTick(currentCheckpoint)) {
+                    if (bestCheckpoint < currentCheckpoint) {
                         return Component.text(" +" + ApiUtilities.formatAsPersonalGap(currentCheckpoint - bestCheckpoint)).color(theme.getError());
                     } else if (ApiUtilities.getRoundedToTick(bestCheckpoint) == ApiUtilities.getRoundedToTick(currentCheckpoint)) {
                         return Component.text(" =" + ApiUtilities.formatAsPersonalGap(currentCheckpoint - bestCheckpoint)).color(theme.getWarning());
