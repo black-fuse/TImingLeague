@@ -461,7 +461,7 @@ public class TSListener implements Listener {
 
             var maybeDriver = EventDatabase.getDriverFromRunningHeat(player.getUniqueId());
             if (maybeDriver.isPresent()) {
-                handleHeat(maybeDriver.get(), player);
+                handleHeat(maybeDriver.get(), e);
                 return;
             }
 
@@ -627,7 +627,8 @@ public class TSListener implements Listener {
         }
     }
 
-    private static void handleHeat(Driver driver, Player player) {
+    private static void handleHeat(Driver driver, PlayerMoveEvent e) {
+        Player player = e.getPlayer();
         Heat heat = driver.getHeat();
 
         if (!heat.getHeatState().equals(HeatState.RACING)) {
@@ -670,7 +671,7 @@ public class TSListener implements Listener {
 
                         return;
                     }
-                    heat.passLap(driver);
+                    heat.passLap(driver, e.getFrom(), e.getTo(), r);
                     heat.updatePositions();
                     if (heat.getGhostingDelta() != null) {
                         checkDeltas(driver);
@@ -691,7 +692,7 @@ public class TSListener implements Listener {
                             return;
                         }
                     }
-                    heat.passLap(driver);
+                    heat.passLap(driver, e.getFrom(), e.getTo(), r);
                     heat.updatePositions();
                     return;
                 }
@@ -749,14 +750,21 @@ public class TSListener implements Listener {
 
             var maybeCheckpoint = track.getTrackRegions().getRegions(TrackRegion.RegionType.CHECKPOINT).stream().filter(trackRegion -> trackRegion.contains(player.getLocation())).findFirst();
             if (maybeCheckpoint.isPresent() && maybeCheckpoint.get().getRegionIndex() == lap.getNextCheckpoint()) {
-                lap.passNextCheckpoint(TimingSystem.currentTime);
+                lap.passNextCheckpoint(e.getFrom(), e.getTo(), maybeCheckpoint.get());
                 heat.updatePositions();
 
                 if (heat.getGhostingDelta() != null) {
                     checkDeltas(driver);
                 }
 
-                new DriverPassCheckpointEvent(driver, lap, maybeCheckpoint.get(), TimingSystem.currentTime).callEvent();
+                // Calculate precise time for the event
+                java.time.Instant preciseTime = me.makkuusen.timing.system.TimingSystem.currentTime;
+                double proportion = calculateRegionEntryProportion(e.getFrom(), e.getTo(), maybeCheckpoint.get());
+                long tickDurationNanos = 50_000_000L;
+                long adjustmentNanos = (long) ((1.0 - proportion) * tickDurationNanos);
+                preciseTime = preciseTime.minusNanos(adjustmentNanos);
+                
+                new DriverPassCheckpointEvent(driver, lap, maybeCheckpoint.get(), preciseTime).callEvent();
             } else if (maybeCheckpoint.isPresent() && maybeCheckpoint.get().getRegionIndex() > lap.getNextCheckpoint()) {
                 if (!track.getTrackOptions().hasOption(TrackOption.NO_RESET_ON_FUTURE_CHECKPOINT)) {
                     performInHeatReset(driver);

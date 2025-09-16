@@ -416,7 +416,7 @@ public class TimeTrial {
                     var currentCheckpoint = getCheckpointTime(latestCheckpoint);
                     if (bestCheckpoint < currentCheckpoint) {
                         return Component.text(" +" + ApiUtilities.formatAsPersonalGap(currentCheckpoint - bestCheckpoint)).color(theme.getError());
-                    } else if (ApiUtilities.getRoundedToTick(bestCheckpoint) == ApiUtilities.getRoundedToTick(currentCheckpoint)) {
+                    } else if (bestCheckpoint == currentCheckpoint) {
                         return Component.text(" =" + ApiUtilities.formatAsPersonalGap(currentCheckpoint - bestCheckpoint)).color(theme.getWarning());
                     } else {
                         return Component.text(" -" + ApiUtilities.formatAsPersonalGap(bestCheckpoint - currentCheckpoint)).color(theme.getSuccess());
