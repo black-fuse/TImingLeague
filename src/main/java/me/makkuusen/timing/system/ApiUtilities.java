@@ -686,7 +686,6 @@ public class ApiUtilities {
     }
 
     public static void teleportPlayerAndSpawnBoat(Player player, Track track, Location location) {
-
         TaskChain<?> chain = TimingSystem.newChain();
         location.setPitch(player.getLocation().getPitch());
         boolean sameAsLastTrack = TimeTrialController.lastTimeTrialTrack.containsKey(player.getUniqueId()) && TimeTrialController.lastTimeTrialTrack.get(player.getUniqueId()).getId() == track.getId();
@@ -725,26 +724,26 @@ public class ApiUtilities {
         TimeTrialController.elytraProtection.put(player.getUniqueId(), Instant.now().getEpochSecond() + 10);
     }
 
-    public static void teleportPlayerAndSpawnBoat(Player player, Track track, Location location, PlayerTeleportEvent.TeleportCause teleportCause) {
-        TaskChain<?> chain = TimingSystem.newChain();
-        location.setPitch(player.getLocation().getPitch());
-        TimeTrialController.lastTimeTrialTrack.put(player.getUniqueId(), track);
-        chain.async(() -> player.teleportAsync(location, teleportCause)).delay(3);
-        if (track.isBoatTrack()) {
-            chain.sync(() -> ApiUtilities.spawnBoatAndAddPlayerWithBoatUtils(player, location, track, true)).execute();
-        } else if (track.isElytraTrack()) {
-            chain.sync(() -> {
-                ItemStack chest = player.getInventory().getChestplate();
-                if (chest == null) {
-                    giveElytra(player);
-                } else if (chest.getItemMeta().hasCustomModelData() && chest.getType() == Material.ELYTRA && chest.getItemMeta().getCustomModelData() == 747) {
-                    giveElytra(player);
-                }
-            }).execute();
-        } else {
-            chain.execute();
-        }
-    }
+//    public static void teleportPlayerAndSpawnBoat(Player player, Track track, Location location, PlayerTeleportEvent.TeleportCause teleportCause) {
+//        TaskChain<?> chain = TimingSystem.newChain();
+//        location.setPitch(player.getLocation().getPitch());
+//        TimeTrialController.lastTimeTrialTrack.put(player.getUniqueId(), track);
+//        chain.async(() -> player.teleportAsync(location, teleportCause)).delay(3);
+//        if (track.isBoatTrack()) {
+//            chain.sync(() -> ApiUtilities.spawnBoatAndAddPlayerWithBoatUtils(player, location, track, true)).execute();
+//        } else if (track.isElytraTrack()) {
+//            chain.sync(() -> {
+//                ItemStack chest = player.getInventory().getChestplate();
+//                if (chest == null) {
+//                    giveElytra(player);
+//                } else if (chest.getItemMeta().hasCustomModelData() && chest.getType() == Material.ELYTRA && chest.getItemMeta().getCustomModelData() == 747) {
+//                    giveElytra(player);
+//                }
+//            }).execute();
+//        } else {
+//            chain.execute();
+//        }
+//    }
 
     public static boolean hasBoatUtilsEffects(Player player) {
         if (BoatUtilsManager.playerBoatUtilsMode.get(player.getUniqueId()) != null) {
