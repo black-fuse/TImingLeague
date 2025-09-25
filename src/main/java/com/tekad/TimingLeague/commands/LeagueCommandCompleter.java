@@ -2,6 +2,7 @@ package com.tekad.TimingLeague.commands;
 
 import com.tekad.TimingLeague.League;
 import com.tekad.TimingLeague.TImingLeague;
+import com.tekad.TimingLeague.Team;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
@@ -75,7 +76,7 @@ public class LeagueCommandCompleter implements TabCompleter {
             }
 
             if (sub.equals("team")) {
-                completions.addAll(List.of("create", "color", "add", "remove", "view"));
+                completions.addAll(List.of("create", "color", "add", "remove", "view","invite","accept", "decline", "promote", "demote"));
                 completions.addAll(leagues.get(args[0]).getTeamsString());
             } else if (sub.equals("standings")) {
                 completions.addAll(List.of("teams"));
@@ -94,6 +95,10 @@ public class LeagueCommandCompleter implements TabCompleter {
             } else if (teamSub.equals("add") || teamSub.equals("remove") || teamSub.equals("view") || teamSub.equals("setName")) {
                 completions.addAll(league.getTeamsString());
             }
+            else if (teamSub.equals("invite") || teamSub.equals("accept") || teamSub.equals("decline") || teamSub.equals("promote") || teamSub.equals("demote")) {
+                completions.addAll(league.getTeamsString());
+            }
+
         }
 
         // ===== Fifth arg: now supports role for 'add' =====
@@ -114,7 +119,13 @@ public class LeagueCommandCompleter implements TabCompleter {
             else if (teamSub.equals("setName")) {
                 completions.add("<newTeamName>");
             }
+            else if (teamSub.equals("invite")) {
+                for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+                    if (p.getName() != null) completions.add(p.getName());
+                }
+            }
         }
+
 
         // ===== Sixth arg: player name after role selection =====
         else if (args.length == 6 && leagues.containsKey(args[0]) && args[1].equalsIgnoreCase("team")) {

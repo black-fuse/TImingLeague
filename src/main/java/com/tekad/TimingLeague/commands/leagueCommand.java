@@ -26,6 +26,9 @@ public class leagueCommand implements CommandExecutor {
 
     private final Map<String, League> leagues = TImingLeague.getLeagueMap();
     private final List<String> holograms = TImingLeague.getHolograms();
+    // leagueName -> (teamName -> set of driver UUIDs)
+    private final Map<String, Map<String, Set<String>>> pendingInvites = new HashMap<>();
+
 
 
     @Override
@@ -412,6 +415,7 @@ public class leagueCommand implements CommandExecutor {
                                 }
 
                                 Team team = new Team(teamName, color, league);
+                                team.setOwner(((Player) sender).getUniqueId().toString());
                                 league.addTeam(team);
                                 player.sendMessage("Created team: " + teamName + " with color #" + color);
                             }
@@ -437,6 +441,11 @@ public class leagueCommand implements CommandExecutor {
                             case "add" -> {
                                 if (args.length < 6) {
                                     player.sendMessage("Usage: /league <leagueName> team add <teamName> <main|reserve> <playerName>");
+                                    return true;
+                                }
+
+                                if (!sender.hasPermission("timingleague.admin")) {
+                                    sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
                                     return true;
                                 }
 
@@ -475,6 +484,12 @@ public class leagueCommand implements CommandExecutor {
                                 }
 
                                 Team team = league.getTeam(args[3]);
+                                if ((!sender.hasPermission("timingleague.admin")) | (!team.getOwner().equals(((Player) sender).getUniqueId().toString()))) {
+                                    sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                                    return true;
+                                }
+
+
                                 if (team == null) {
                                     player.sendMessage("Team not found: " + args[3]);
                                     return true;
@@ -490,6 +505,192 @@ public class leagueCommand implements CommandExecutor {
 
                                 team.removeMember(uuid);
                                 player.sendMessage("Removed player " + target.getName() + " from team " + team.getName() + ".");
+                            }
+
+                            case "invite" -> {
+                                if (args.length < 5) {
+                                    player.sendMessage("Usage: /league <leagueName> team invite <teamName> <driverName>");
+                                    return true;
+                                }
+
+                                String teamName = args[3];
+                                String driverName = args[4];
+
+                                Team team = league.getTeam(teamName);
+                                if (team == null) {
+                                    player.sendMessage("Team not found: " + teamName);
+                                    return true;
+                                }
+
+                                // Only owner or admin can invite
+                                String owner = team.getOwner();
+                                if (owner == null || !owner.equals(player.getUniqueId().toString())) {
+                                    player.sendMessage(ChatColor.RED + "You do not have permission over this team.");
+                                    return true;
+                                }
+
+
+                                OfflinePlayer target = Bukkit.getOfflinePlayer(driverName);
+                                String driverUUID = target.getUniqueId().toString();
+
+                                pendingInvites
+                                        .computeIfAbsent(leagueName, k -> new HashMap<>())
+                                        .computeIfAbsent(teamName, k -> new HashSet<>())
+                                        .add(driverUUID);
+
+                                if (target.isOnline()) {
+                                    target.getPlayer().sendMessage(ChatColor.GREEN + "You’ve been invited to join team " +
+                                            teamName + " in league " + leagueName +
+                                            ". Use /league " + leagueName + " team " + " accept to join." + teamName);
+                                }
+
+                                player.sendMessage("Invite sent to " + driverName + " for team " + teamName + ".");
+                            }
+
+                            case "accept" -> {
+                                if (args.length < 4) {
+                                    player.sendMessage("Usage: /league <leagueName> team accept <teamName>");
+                                    return true;
+                                }
+
+                                String teamName = args[3];
+                                Team team = league.getTeam(teamName);
+                                if (team == null) {
+                                    player.sendMessage("Team not found: " + teamName);
+                                    return true;
+                                }
+
+                                String playerUUID = player.getUniqueId().toString();
+
+                                // Check if player was invited
+                                Set<String> invites = pendingInvites
+                                        .getOrDefault(leagueName, Collections.emptyMap())
+                                        .getOrDefault(teamName, Collections.emptySet());
+
+                                if (!invites.contains(playerUUID)) {
+                                    player.sendMessage(ChatColor.RED + "You do not have an invite to join " + teamName + ".");
+                                    return true;
+                                }
+
+                                // Remove from old team (if in one)
+                                for (Team t : league.getTeams()) {
+                                    if (t.isMember(playerUUID)) {
+                                        t.removeMember(playerUUID);
+                                        break;
+                                    }
+                                }
+
+                                // Add to new team
+                                boolean addedMainDriver = team.addMainDriver(playerUUID);
+                                if (addedMainDriver) {
+                                    player.sendMessage(ChatColor.GREEN + "You joined team " + team.getName() + "!");
+                                    String owner = team.getOwner();
+                                    Player ownerPlayer = Bukkit.getPlayer(UUID.fromString(owner));
+                                    if (ownerPlayer != null && ownerPlayer.isOnline()) {
+                                        ownerPlayer.sendMessage(ChatColor.YELLOW + player.getName() + " has joined the team!");
+                                    }
+
+                                } else {
+                                    boolean addedReserveDriver = team.addReserveDriver(playerUUID);
+                                    if (addedReserveDriver){
+                                        player.sendMessage(ChatColor.GREEN + "You joined team " + team.getName() + "!");
+                                        String owner = team.getOwner();
+                                        Player ownerPlayer = Bukkit.getPlayer(UUID.fromString(owner));
+                                        if (ownerPlayer != null && ownerPlayer.isOnline()) {
+                                            ownerPlayer.sendMessage(ChatColor.YELLOW + player.getName() + " has joined the team!");
+                                        }
+                                    } else {
+                                        player.sendMessage(ChatColor.RED + "Could not join team (team full?).");
+                                        return true;
+                                    }
+
+                                }
+
+                                // Clear invite
+                                pendingInvites.getOrDefault(leagueName, Collections.emptyMap())
+                                        .getOrDefault(teamName, Collections.emptySet())
+                                        .remove(playerUUID);
+                            }
+
+                            case "decline" -> {
+                                if (args.length < 4) {
+                                    player.sendMessage("Usage: /league <leagueName> team decline <teamName>");
+                                    return true;
+                                }
+
+                                String teamName = args[3];
+                                Team team = league.getTeam(teamName);
+                                if (team == null) {
+                                    player.sendMessage("Team not found: " + teamName);
+                                    return true;
+                                }
+
+                                String playerUUID = player.getUniqueId().toString();
+
+                                // Check if the player has an invite
+                                Set<String> invites = pendingInvites
+                                        .getOrDefault(leagueName, Collections.emptyMap())
+                                        .getOrDefault(teamName, Collections.emptySet());
+
+                                if (!invites.contains(playerUUID)) {
+                                    player.sendMessage(ChatColor.RED + "You don’t have an invite to " + teamName + ".");
+                                    return true;
+                                }
+
+                                // Remove invite
+                                invites.remove(playerUUID);
+                                player.sendMessage(ChatColor.YELLOW + "You declined the invite to join " + teamName + ".");
+
+                                // Notify team owner if online
+                                String owner = team.getOwner();
+                                Player ownerPlayer = Bukkit.getPlayer(UUID.fromString(owner));
+                                if (ownerPlayer != null && ownerPlayer.isOnline()) {
+                                    ownerPlayer.sendMessage(ChatColor.RED + player.getName() + " declined the invite to join your team " + teamName + ".");
+                                }
+                            }
+
+                            case "promote" -> {
+                                if (args.length < 5){
+                                    player.sendMessage(ChatColor.RED + "Usage: /league <league> team  promote <team> <player>");
+                                    return true;
+                                }
+
+                                String teamName = args[3];
+                                String driverName = args[4];
+                                @NotNull OfflinePlayer driver = Bukkit.getOfflinePlayer(driverName);
+                                Team team = league.getTeam(teamName);
+
+                                String owner = team.getOwner();
+                                if (owner == null || !owner.equals(player.getUniqueId().toString())) {
+                                    player.sendMessage(ChatColor.RED + "You do not have permission over this team.");
+                                    return true;
+                                }
+
+                                boolean promoted = team.promoteToMain(driver.getUniqueId().toString());
+                                if (promoted) player.sendMessage(ChatColor.GREEN + driverName + " promoted to main driver.");
+                                else player.sendMessage(ChatColor.RED + "Could not promote " + driverName + " (already main or team full?).");
+                            }
+
+                            case "demote" -> {
+                                if (args.length < 5){
+                                    player.sendMessage(ChatColor.RED + "Usage: /league <league> team  demote <team> <player>");
+                                    return true;
+                                }
+
+                                String teamName = args[3];
+                                String driverName = args[4];
+                                @NotNull OfflinePlayer driver = Bukkit.getOfflinePlayer(driverName);
+                                Team team = league.getTeam(teamName);
+
+                                String owner = team.getOwner();
+                                if (owner == null || !owner.equals(player.getUniqueId().toString())) {
+                                    player.sendMessage(ChatColor.RED + "You do not have permission over this team.");
+                                    return true;
+                                }
+
+                                boolean demoted = team.demoteToReserve(driver.getUniqueId().toString());
+                                if (demoted) player.sendMessage(ChatColor.GREEN + driverName + " demoted to reserve driver.");
+                                else player.sendMessage(ChatColor.RED + "Could not demote " + driverName + " (already reserve or team full?).");
                             }
 
                             // ===== View Team =====
@@ -544,6 +745,7 @@ public class leagueCommand implements CommandExecutor {
         /league <leagueName> team add <teamName> <playerName> - Add a player to a team
         /league <leagueName> team remove <teamName> <playerName> - Remove a player from a team
         /league <leagueName> team view <teamName> - View a team and its members
+        /league <leagueName> team invite <teamName> <driverName>
         /league <leagueName> team <teamName> - Shorthand to view a team
         /league <leagueName> standings [page] - View driver standings with pagination
         /league <leagueName> standings teams [page] - View team standings with pagination
