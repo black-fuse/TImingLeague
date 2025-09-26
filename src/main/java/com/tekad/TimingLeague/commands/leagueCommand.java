@@ -812,10 +812,6 @@ public class leagueCommand implements CommandExecutor {
             List<String> driverLines = generateDriverLines(league, leagueName, start, pageSize, player);
             List<String> teamLines = generateTeamLines(league, leagueName, start, pageSize, player);
 
-            if (driverLines == null || teamLines == null) {
-                return true; // Page out of range
-            }
-
             for (String hologram : updateWithDriver) {
                 manager.updateExistingHologram(hologram, driverLines);
             }
@@ -830,10 +826,6 @@ public class leagueCommand implements CommandExecutor {
                 lines = generateTeamLines(league, leagueName, start, pageSize, player);
             } else {
                 lines = generateDriverLines(league, leagueName, start, pageSize, player);
-            }
-
-            if (lines == null) {
-                return true; // Page out of range
             }
 
             manager.createOrUpdateHologram(placeLocation, lines, leagueName, teamMode);
@@ -870,10 +862,6 @@ public class leagueCommand implements CommandExecutor {
         List<String> driverLines = generateDriverLines(league, leagueName, start, pageSize, player);
         List<String> teamLines = generateTeamLines(league, leagueName, start, pageSize, player);
 
-        if (driverLines == null || teamLines == null) {
-            return true; // Page out of range
-        }
-
         for (String hologram : updateWithDriver) {
             manager.updateExistingHologram(hologram, driverLines);
         }
@@ -896,7 +884,6 @@ public class leagueCommand implements CommandExecutor {
 
         if (start >= standings.size()) {
             if (player != null) player.sendMessage("Page out of range.");
-            return null;
         }
 
         int end = Math.min(start + pageSize, standings.size());
@@ -923,7 +910,6 @@ public class leagueCommand implements CommandExecutor {
 
         if (start >= standings.size()) {
             if (player != null) player.sendMessage("Page out of range.");
-            return null;
         }
 
         int end = Math.min(start + pageSize, standings.size());
