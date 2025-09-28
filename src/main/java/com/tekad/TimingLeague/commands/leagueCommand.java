@@ -374,7 +374,6 @@ public class leagueCommand implements CommandExecutor {
 
 
                     case "team" -> {
-                        // TODO: Only allow team owners to manage their own team
                         if (args.length < 3) {
                             player.sendMessage("Usage: /league <leagueName> team <create|color|add|remove|view|list> [arguments]");
                             return true;

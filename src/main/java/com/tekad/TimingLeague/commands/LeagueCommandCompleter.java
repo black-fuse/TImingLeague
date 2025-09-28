@@ -72,6 +72,8 @@ public class LeagueCommandCompleter implements TabCompleter {
                     Bukkit.getOnlinePlayers().forEach(p -> {
                         if (p.getName() != null) completions.add(p.getName());
                     });
+                } else if (sub.equals("updatewithheat")){
+                    completions.add("<eventId>");
                 }
             }
 
@@ -84,19 +86,26 @@ public class LeagueCommandCompleter implements TabCompleter {
         }
 
         // ===== Fourth arg: team sub-args =====
-        else if (args.length == 4 && leagues.containsKey(args[0]) && args[1].equalsIgnoreCase("team")) {
-            String teamSub = args[2].toLowerCase();
-            League league = leagues.get(args[0]);
+        else if (args.length == 4 && leagues.containsKey(args[0])) {
 
-            if (teamSub.equals("create")) {
-                completions.add("<teamName>");
-            } else if (teamSub.equals("color") || teamSub.equals("setColor")) {
-                completions.addAll(league.getTeamsString());
-            } else if (teamSub.equals("add") || teamSub.equals("remove") || teamSub.equals("view") || teamSub.equals("setName")) {
-                completions.addAll(league.getTeamsString());
+            if (args[1].equalsIgnoreCase("team")){
+                String teamSub = args[2].toLowerCase();
+                League league = leagues.get(args[0]);
+
+                if (teamSub.equals("create")) {
+                    completions.add("<teamName>");
+                } else if (teamSub.equals("color") || teamSub.equals("setColor")) {
+                    completions.addAll(league.getTeamsString());
+                } else if (teamSub.equals("add") || teamSub.equals("remove") || teamSub.equals("view") || teamSub.equals("setName")) {
+                    completions.addAll(league.getTeamsString());
+                }
+                else if (teamSub.equals("invite") || teamSub.equals("accept") || teamSub.equals("decline") || teamSub.equals("promote") || teamSub.equals("demote")) {
+                    completions.addAll(league.getTeamsString());
+                }
             }
-            else if (teamSub.equals("invite") || teamSub.equals("accept") || teamSub.equals("decline") || teamSub.equals("promote") || teamSub.equals("demote")) {
-                completions.addAll(league.getTeamsString());
+            String subTwo = args[2].toLowerCase();
+            if (args[1].equalsIgnoreCase("updatewithheat")){
+                completions.add("<heatID>");
             }
 
         }
@@ -124,13 +133,7 @@ public class LeagueCommandCompleter implements TabCompleter {
                     if (p.getName() != null) completions.add(p.getName());
                 }
             }
-        }
-
-
-        // ===== Sixth arg: player name after role selection =====
-        else if (args.length == 6 && leagues.containsKey(args[0]) && args[1].equalsIgnoreCase("team")) {
-            String teamSub = args[2].toLowerCase();
-            if (teamSub.equals("add")) {
+            else if (teamSub.equals("add")) {
                 for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
                     if (p.getName() != null) completions.add(p.getName());
                 }
