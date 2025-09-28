@@ -17,7 +17,4 @@ permision nodes:
 todo list:
 - eventgen based on presets
 - allow custom scoring systems
-- re-work team system (allow only team owners to edit drivers)
-- teams not saving in database
-- team color in database
 - allow exporting to csv
