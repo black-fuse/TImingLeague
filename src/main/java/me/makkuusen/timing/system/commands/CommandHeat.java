@@ -358,6 +358,14 @@ public class CommandHeat extends BaseCommand {
         Text.send(player, Success.SAVED);
     }
 
+    @Subcommand("set boatSwitching")
+    @CommandCompletion("@heat true|false")
+    @CommandPermission("%permissionheat_set_boatswitching")
+    public static void onHeatBoatSwitching(Player player, Heat heat, Boolean boatSwitching) {
+        heat.setBoatSwitching(boatSwitching);
+        Text.send(player, Success.SAVED);
+    }
+
     @Subcommand("set driverposition")
     @CommandCompletion("@heat @players <[+/-]pos>")
     @CommandPermission("%permissionheat_set_driverposition")

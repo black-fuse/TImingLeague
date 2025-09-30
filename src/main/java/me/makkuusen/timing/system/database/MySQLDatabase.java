@@ -58,7 +58,7 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
         try {
             var row = DB.getFirstRow("SELECT * FROM `ts_version` ORDER BY `date` DESC;");
 
-            int databaseVersion = 9;
+            int databaseVersion = 10;
             if (row == null) { // First startup
                 DB.executeInsert("INSERT INTO `ts_version` (`version`, `date`) VALUES(?, ?);",
                         databaseVersion,
@@ -132,6 +132,9 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
         }
         if (previousVersion < 9) {
             Version9.updateMySQL();
+        }
+        if (previousVersion < 10) {
+            Version10.updateMySQL();
         }
     }
 
@@ -263,6 +266,7 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
                       `canReset` tinyint(1) NOT NULL DEFAULT '0',
                       `lapReset` tinyint(1) NOT NULL DEFAULT '0',
                       `ghostingDelta` int(11) DEFAULT NULL,
+                      `boatSwitching` tinyint(1) DEFAULT NULL,
                       `isRemoved` tinyint(1) NOT NULL DEFAULT '0',
                       PRIMARY KEY (`id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;""");
@@ -664,6 +668,14 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
 
     @Override
     public void heatSet(long heatId, String column, Long value) {
+        DB.executeUpdateAsync("UPDATE `ts_heats` SET `" + column + "` = ? WHERE `id` = ?;",
+                value,
+                heatId
+        );
+    }
+
+    @Override
+    public void heatSet(long heatId, String column, Boolean value) {
         DB.executeUpdateAsync("UPDATE `ts_heats` SET `" + column + "` = ? WHERE `id` = ?;",
                 value,
                 heatId

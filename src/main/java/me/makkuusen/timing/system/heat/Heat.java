@@ -63,6 +63,7 @@ public class Heat {
     private Boolean reset;
     private Boolean lapReset;
     private Integer ghostingDelta;
+    private Boolean boatSwitching;
     private SpectatorScoreboard scoreboard;
     private Instant lastScoreboardUpdate = Instant.now();
 
@@ -82,6 +83,7 @@ public class Heat {
         reset = data.get("canReset") instanceof Boolean ? data.get("canReset") : data.get("canReset").equals(1);
         lapReset = data.get("lapReset") instanceof Boolean ? data.get("lapReset") : data.get("lapReset").equals(1);
         ghostingDelta = data.get("ghostingDelta") == null ? null : data.getInt("ghostingDelta");
+        boatSwitching = data.get("boatSwitching") instanceof Boolean ? data.get("boatSwitching") : data.get("boatSwitching") == null ? null : data.get("boatSwitching").equals(1);
         startDelay = data.get("startDelay") == null ? round instanceof FinalRound ? TimingSystem.configuration.getFinalStartDelayInMS() : TimingSystem.configuration.getQualyStartDelayInMS() : data.getInt("startDelay");
         fastestLapUUID = data.getString("fastestLapUUID") == null ? null : UUID.fromString(data.getString("fastestLapUUID"));
         gridManager = new GridManager(round instanceof QualificationRound);
@@ -511,6 +513,11 @@ public class Heat {
     public void setHeatNumber(int heatNumber) {
         this.heatNumber = heatNumber;
         TimingSystem.getEventDatabase().heatSet(getId(), "heatNumber", heatNumber);
+    }
+
+    public void setBoatSwitching(Boolean boatSwitching) {
+        this.boatSwitching = boatSwitching;
+        TimingSystem.getEventDatabase().heatSet(getId(), "boatSwitching", boatSwitching);
     }
 
     public boolean isActive() {

@@ -76,6 +76,8 @@ public interface EventDatabase {
 
     void heatSet(long heatId, String column, Long value);
 
+    void heatSet(long heatId, String column, Boolean value);
+
     void driverSet(long driverId, String column, Integer value);
 
     void driverSet(long driverId, String column, Long value);
