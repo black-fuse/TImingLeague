@@ -170,6 +170,9 @@ public class DatabaseManager {
     }
 
     public void saveHolograms(List<String> holograms) throws SQLException {
+        try (PreparedStatement clearHolograms = connection.prepareStatement("DELETE FROM holograms")){
+            clearHolograms.executeUpdate();
+        }
         String sql = "INSERT OR REPLACE INTO holograms (id, leagueName, world, x, y, z) VALUES (?, ?, ?, ?, ?, ?)";
         PreparedStatement holoStmt = connection.prepareStatement(sql);
 
