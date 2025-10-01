@@ -220,6 +220,7 @@ info:
   heat_info_laps: "&1圈数："
   heat_info_pits: "&1进站次数："
   heat_info_max_drivers: "&1最大车手数："
+  heat_info_collision_mode: "&1碰撞模式："
   heat_info_drivers: "&1车手："
   heat_info_fastest_lap: "&1最快圈：&2%time%&1，由&2%player%&1做出"
   round_info_heats: "&1场次："

@@ -38,7 +38,7 @@ public class DeltaGhostingController {
 
     private static void deltaGhost(Driver leadingDriver, Driver trailingDriver) {
         Heat heat = leadingDriver.getHeat();
-        if (heat.getLonely() || LonelinessController.isGhosted(trailingDriver.getTPlayer().getUniqueId())) {
+        if (heat.getCollisionMode() == me.makkuusen.timing.system.heat.CollisionMode.DISABLED || LonelinessController.isGhosted(trailingDriver.getTPlayer().getUniqueId())) {
             return;
         }
 
@@ -57,7 +57,7 @@ public class DeltaGhostingController {
 
     private static void unDeltaGhost(Driver leadingDriver, Driver trailingDriver) {
         Heat heat = leadingDriver.getHeat();
-        if (heat.getLonely() || LonelinessController.isGhosted(trailingDriver.getTPlayer().getUniqueId())) {
+        if (heat.getCollisionMode() == me.makkuusen.timing.system.heat.CollisionMode.DISABLED || LonelinessController.isGhosted(trailingDriver.getTPlayer().getUniqueId())) {
             return;
         }
 
@@ -81,7 +81,7 @@ public class DeltaGhostingController {
     }
 
     public static boolean isDeltaGhosted(Driver leadingDriver, Driver trailingDriver) {
-        if (leadingDriver.getHeat().getLonely()) {
+        if (leadingDriver.getHeat().getCollisionMode() == me.makkuusen.timing.system.heat.CollisionMode.DISABLED) {
             return false;
         }
 

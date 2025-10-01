@@ -247,6 +247,7 @@ info:
   heat_info_laps: "&1Laps: "
   heat_info_pits: "&1Pits: "
   heat_info_max_drivers: "&1Max drivers: "
+  heat_info_collision_mode: "&1Collision mode: "
   heat_info_drivers: "&1Drivers: "
   heat_info_fastest_lap: "&1Fastest lap: &2%time% &1by &2%player%"
   round_info_heats: "&1Heats:"

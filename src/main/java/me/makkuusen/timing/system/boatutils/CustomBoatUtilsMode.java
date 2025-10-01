@@ -292,7 +292,7 @@ public class CustomBoatUtilsMode {
     // </editor-fold>
 
     // Writes a String to a DataOutputStream in a format compatible with Minecraft's PacketByteBuf
-    private static void writeString(DataOutputStream out, String stringValue) throws IOException {
+    public static void writeString(DataOutputStream out, String stringValue) throws IOException {
         byte[] stringBytes = stringValue.getBytes(StandardCharsets.UTF_8);
         int length = stringBytes.length;
 

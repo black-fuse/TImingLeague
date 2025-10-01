@@ -220,6 +220,7 @@ public class SQLiteDatabase extends MySQLDatabase {
                           `lapReset` INTEGER DEFAULT NULL,
                           `ghostingDelta` INTEGER DEFAULT NULL,
                           `boatSwitching` INTEGER DEFAULT NULL,
+                          `collisionMode` TEXT DEFAULT NULL,
                           `isRemoved` INTEGER NOT NULL DEFAULT '0'
                         );""");
 

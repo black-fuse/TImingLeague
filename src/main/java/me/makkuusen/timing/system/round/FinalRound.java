@@ -45,6 +45,7 @@ public class FinalRound extends Round {
                 nextHeat.setTotalLaps(TimingSystem.configuration.getLaps());
                 nextHeat.setTotalPits(pits);
             }
+            nextHeat.setCollisionMode(me.makkuusen.timing.system.heat.CollisionMode.HIGH);
         }
     }
 }

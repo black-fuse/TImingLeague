@@ -59,7 +59,7 @@ public class Heat {
     private Integer totalPits;
     private Integer startDelay;
     private Integer maxDrivers;
-    private Boolean lonely;
+    private CollisionMode collisionMode;
     private Boolean reset;
     private Boolean lapReset;
     private Integer ghostingDelta;
@@ -79,7 +79,14 @@ public class Heat {
         totalLaps = data.get("totalLaps") == null ? null : data.getInt("totalLaps");
         totalPits = data.get("totalPitstops") == null ? null : data.getInt("totalPitstops");
         maxDrivers = data.get("maxDrivers") == null ? null : data.getInt("maxDrivers");
-        lonely = data.get("lonely") instanceof Boolean ? data.get("lonely") : data.get("lonely").equals(1);
+        // Convert legacy lonely boolean to CollisionMode
+        Boolean legacyLonely = data.get("lonely") instanceof Boolean ? (Boolean) data.get("lonely") : data.get("lonely") != null && data.get("lonely").equals(1);
+        if (data.get("collisionMode") != null) {
+            collisionMode = CollisionMode.valueOf(data.getString("collisionMode"));
+        } else {
+            // Legacy conversion: lonely=true -> DISABLED, lonely=false -> HIGH
+            collisionMode = legacyLonely ? CollisionMode.DISABLED : CollisionMode.HIGH;
+        }
         reset = data.get("canReset") instanceof Boolean ? data.get("canReset") : data.get("canReset").equals(1);
         lapReset = data.get("lapReset") instanceof Boolean ? data.get("lapReset") : data.get("lapReset").equals(1);
         ghostingDelta = data.get("ghostingDelta") == null ? null : data.getInt("ghostingDelta");
@@ -518,6 +525,22 @@ public class Heat {
     public void setBoatSwitching(Boolean boatSwitching) {
         this.boatSwitching = boatSwitching;
         TimingSystem.getEventDatabase().heatSet(getId(), "boatSwitching", boatSwitching);
+    }
+
+    public void setCollisionMode(CollisionMode collisionMode) {
+        this.collisionMode = collisionMode;
+        TimingSystem.getEventDatabase().heatSet(getId(), "collisionMode", collisionMode.name());
+    }
+
+    // Backward compatibility method
+    public Boolean getLonely() {
+        return collisionMode == CollisionMode.DISABLED;
+    }
+
+    // Backward compatibility method
+    public void setLonely(Boolean lonely) {
+        this.collisionMode = lonely ? CollisionMode.DISABLED : CollisionMode.HIGH;
+        TimingSystem.getEventDatabase().heatSet(getId(), "collisionMode", collisionMode.name());
     }
 
     public boolean isActive() {

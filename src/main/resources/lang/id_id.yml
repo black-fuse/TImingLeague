@@ -204,6 +204,7 @@ info:
   heat_info_laps: "&1Ronde: "
   heat_info_pits: "&1Pits: "
   heat_info_max_drivers: "&1Pembalap maksimum: "
+  heat_info_collision_mode: "&1Mode tabrakan: "
   heat_info_drivers: "&1Pembalap-pembalap: "
   heat_info_fastest_lap: "&1Ronde tercepat: &2%time% &1oleh &2%player%"
   round_info_heats: "&1Heats:"

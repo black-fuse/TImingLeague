@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import me.makkuusen.timing.system.TimingSystem;
 import me.makkuusen.timing.system.api.events.BoatSpawnEvent;
+import me.makkuusen.timing.system.heat.CollisionMode;
 import me.makkuusen.timing.system.heat.Heat;
 import me.makkuusen.timing.system.participant.Driver;
 import me.makkuusen.timing.system.participant.DriverState;
@@ -23,8 +24,7 @@ import org.bukkit.plugin.Plugin;
 import me.makkuusen.timing.system.api.TimingSystemAPI;
 import me.makkuusen.timing.system.api.events.TimeTrialStartEvent;
 
-import static me.makkuusen.timing.system.boatutils.NocolManager.playerCanUseNocol;
-import static me.makkuusen.timing.system.boatutils.NocolManager.setCollisionMode;
+import static me.makkuusen.timing.system.boatutils.NocolManager.*;
 
 public class LonelinessController implements Listener {
 
@@ -73,32 +73,37 @@ public class LonelinessController implements Listener {
                 heat = streakingHeat;
             }
 
-            if (heat.getLonely()) {
-                // Loneliness heat
+            if (heat.getCollisionMode() == CollisionMode.DISABLED) {
+                // Collision disabled heat (formerly loneliness)
                 if (canUseNocol && lonelinessDisabled) {
                     // Show only heat players, activate nocol
                     showHeatPlayersOnly(player, heat);
                     setCollisionMode(player, false);
                 } else {
-                    // Hide all players (loneliness effect) - but streakers should still see heat players
+                    // Hide all players (collision disabled effect) - but streakers should still see heat players
                     if (isDriver) {
                         hideAllOthers(player);
                     } else {
-                        // Streakers always see heat players even in lonely mode
+                        // Streakers always see heat players even in collision disabled mode
                         showHeatPlayersOnly(player, heat);
                     }
                 }
-            } else {
-                // Non-loneliness racing heat
-                if (canUseNocol && lonelinessDisabled) {
-                    // Show only heat players, no nocol
-                    showHeatPlayersOnly(player, heat);
-                    setCollisionMode(player, true);
+            } else if (heat.getCollisionMode() == CollisionMode.LOW) {
+                // Low collision mode - filtered collision for compatible clients, high collision for others
+                showHeatPlayersOnly(player, heat);
+                if (playerCanUseFilteredCollision(player)) {
+                    // Use filtered collision - no collision with players/villagers but boats still collide
+                    TimingSystem.getPlugin().getLogger().info("Applying LOW collision mode (filtered) for player " + player.getName());
+                    setLowCollisionMode(player);
                 } else {
-                    // Show only heat players, no nocol
-                    showHeatPlayersOnly(player, heat);
+                    // Fallback to high collision mode for incompatible clients
+                    TimingSystem.getPlugin().getLogger().info("Applying LOW collision mode fallback (vanilla) for player " + player.getName());
                     setCollisionMode(player, true);
                 }
+            } else {
+                // High collision mode - full vanilla collisions
+                showHeatPlayersOnly(player, heat);
+                setCollisionMode(player, true);
             }
         }, VISIBILITY_UPDATE_DELAY);
     }
@@ -144,14 +149,13 @@ public class LonelinessController implements Listener {
     }
 
     private static void hideAllOthers(Player player) {
-        setCollisionMode(player, true); // Ensure nocol is disabled when hiding players
+        setCollisionMode(player, true); // Ensure vanilla collision when hiding players
         for (Player otherPlayer : getOtherOnlinePlayers(player)) {
             hidePlayerAndCustomBoat(player, otherPlayer);
         }
     }
 
     private static void showHeatPlayersOnly(Player player, Heat heat) {
-        setCollisionMode(player, true); // Default to nocol disabled
         for (Player otherPlayer : getOtherOnlinePlayers(player)) {
             if (heat.getDrivers().containsKey(otherPlayer.getUniqueId()) || 
                 heat.getStreakers().containsKey(otherPlayer.getUniqueId())) {
@@ -246,16 +250,16 @@ public class LonelinessController implements Listener {
             return;
         }
 
-        if (viewingHeat.getLonely()) {
+        if (viewingHeat.getCollisionMode() == CollisionMode.DISABLED) {
             if (canUseNocol && lonelinessDisabled) {
                 showPlayerAndCustomBoat(viewingPlayer, targetPlayer);
             } else {
-                // In lonely mode, streakers should still see heat players
+                // In collision disabled mode, streakers should still see heat players
                 if (!viewingIsDriver) {
                     // Viewing player is a streaker - always show heat players
                     showPlayerAndCustomBoat(viewingPlayer, targetPlayer);
                 } else {
-                    // Viewing player is a driver - hide in lonely mode
+                    // Viewing player is a driver - hide in collision disabled mode
                     hidePlayerAndCustomBoat(viewingPlayer, targetPlayer);
                 }
             }

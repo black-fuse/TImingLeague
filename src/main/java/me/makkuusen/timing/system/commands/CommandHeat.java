@@ -13,6 +13,7 @@ import me.makkuusen.timing.system.database.TSDatabase;
 import me.makkuusen.timing.system.event.Event;
 import me.makkuusen.timing.system.event.EventAnnouncements;
 import me.makkuusen.timing.system.event.EventResults;
+import me.makkuusen.timing.system.heat.CollisionMode;
 import me.makkuusen.timing.system.heat.Heat;
 import me.makkuusen.timing.system.heat.HeatState;
 import me.makkuusen.timing.system.heat.Lap;
@@ -126,6 +127,15 @@ public class CommandHeat extends BaseCommand {
             maxDriversMessage = maxDriversMessage.append(theme.highlight(String.valueOf(heat.getMaxDrivers())));
         }
         player.sendMessage(maxDriversMessage);
+
+        var collisionModeMessage = Text.get(player, Info.HEAT_INFO_COLLISION_MODE);
+
+        if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
+            collisionModeMessage = collisionModeMessage.append(theme.getEditButton(player, heat.getCollisionMode().name().toLowerCase(), theme).clickEvent(ClickEvent.suggestCommand("/heat set collision " + heat.getName() + " ")));
+        } else {
+            collisionModeMessage = collisionModeMessage.append(theme.highlight(heat.getCollisionMode().name().toLowerCase()));
+        }
+        player.sendMessage(collisionModeMessage);
 
         if (heat.getFastestLapUUID() != null) {
             Driver d = heat.getDrivers().get(heat.getFastestLapUUID());
@@ -315,9 +325,23 @@ public class CommandHeat extends BaseCommand {
         Text.send(player, Success.SAVED);
     }
 
+    @Subcommand("set collision")
+    @CommandCompletion("@heat high|low|disabled")
+    @CommandPermission("%permissionheat_set_collision")
+    public static void onHeatSetCollision(Player player, Heat heat, String collisionMode) {
+        try {
+            CollisionMode mode = CollisionMode.valueOf(collisionMode.toUpperCase());
+            heat.setCollisionMode(mode);
+            Text.send(player, Success.SAVED);
+        } catch (IllegalArgumentException e) {
+            Text.send(player, Error.GENERIC);
+        }
+    }
+
     @Subcommand("set lonely")
     @CommandCompletion("@heat true|false")
     @CommandPermission("%permissionheat_set_lonely")
+    @Deprecated
     public static void onHeatSetLonely(Player player, Heat heat, Boolean lonely) {
         heat.setLonely(lonely);
         Text.send(player, Success.SAVED);
