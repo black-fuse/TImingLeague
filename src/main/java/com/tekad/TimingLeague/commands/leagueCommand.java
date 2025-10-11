@@ -8,6 +8,9 @@ import com.tekad.TimingLeague.ScoringSystems.ScoringSystem;
 import eu.decentsoftware.holograms.api.DHAPI;
 import me.makkuusen.timing.system.api.EventResultsAPI;
 import me.makkuusen.timing.system.api.event.HeatResult;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -278,6 +281,8 @@ public class leagueCommand implements CommandExecutor {
                         }
 
                         int pageSize = 15;
+
+
                         int start = (page - 1) * pageSize;
 
                         if (showTeams) {
@@ -460,7 +465,7 @@ public class leagueCommand implements CommandExecutor {
 
                                 boolean success;
                                 if (type.equals("main")) {
-                                    success = team.addMainDriver(uuid);
+                                    success = league.addMainDriverToTeam(uuid, team.getName());
                                 } else if (type.equals("reserve")) {
                                     success = team.addReserveDriver(uuid);
                                 } else {

@@ -59,9 +59,9 @@ public class LeagueCommandCompleter implements TabCompleter {
                         if (p.getName() != null) completions.add(p.getName());
                     });
                 } else if (sub.equals("removedriver")) {
-                    for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+                    Bukkit.getOnlinePlayers().forEach(p -> {
                         if (p.getName() != null) completions.add(p.getName());
-                    }
+                    });
                 } else if (sub.equals("update") || sub.equals("calendar")) {
                     completions.add("<eventId>");
                 } else if (sub.equals("holo")) {
@@ -121,22 +121,22 @@ public class LeagueCommandCompleter implements TabCompleter {
                 completions.addAll(List.of("main", "reserve")); // <-- NEW role options
             }
             else if (teamSub.equals("remove")) {
-                for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+                Bukkit.getOnlinePlayers().forEach(p -> {
                     if (p.getName() != null) completions.add(p.getName());
-                }
+                });
             }
             else if (teamSub.equals("setName")) {
                 completions.add("<newTeamName>");
             }
             else if (teamSub.equals("invite")) {
-                for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+                Bukkit.getOnlinePlayers().forEach(p -> {
                     if (p.getName() != null) completions.add(p.getName());
-                }
+                });
             }
             else if (teamSub.equals("add")) {
-                for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+                Bukkit.getOnlinePlayers().forEach(p -> {
                     if (p.getName() != null) completions.add(p.getName());
-                }
+                });
             }
         }
 

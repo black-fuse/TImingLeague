@@ -96,6 +96,26 @@ public class League {
         flapPoints = points;
     }
 
+    public boolean addMainDriverToTeam(String uuid, String teamName){
+        Team team = getTeam(teamName);
+        Boolean success = team.addMainDriver(uuid);
+        if (success){
+            driversList.put(uuid, team);
+        }
+
+        return success;
+    }
+
+    public boolean addReserveDriverToTeam(String uuid, String teamName){
+        Team team = getTeam(teamName);
+        Boolean success = team.addReserveDriver(uuid);
+        if (success){
+            driversList.put(uuid, team);
+        }
+
+        return success;
+    }
+
     public void addPointsToDriver(String uuid, int points){
         driverStandings.put(uuid, driverStandings.getOrDefault(uuid, 0) + points);
     }
