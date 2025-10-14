@@ -512,7 +512,7 @@ public class leagueCommand implements CommandExecutor {
                                 }
 
                                 Team team = league.getTeam(args[3]);
-                                if ((!sender.hasPermission("timingleague.admin")) | (!team.getOwner().equals(((Player) sender).getUniqueId().toString()))) {
+                                if (!((!sender.hasPermission("timingleague.admin")) | (!team.getOwner().equals(((Player) sender).getUniqueId().toString())))) {
                                     sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
                                     return true;
                                 }
