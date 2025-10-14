@@ -46,6 +46,7 @@ public class LeagueCommandCompleter implements TabCompleter {
                 completions.add("scoring");
                 completions.add("holo");
                 completions.add("points");
+                completions.add("teamPoints");
             }
         }
 
@@ -72,6 +73,8 @@ public class LeagueCommandCompleter implements TabCompleter {
                     Bukkit.getOnlinePlayers().forEach(p -> {
                         if (p.getName() != null) completions.add(p.getName());
                     });
+                } else if (sub.equals(("teamPoints"))){
+                    completions.addAll(leagues.get(args[0]).getTeamsString());
                 } else if (sub.equals("updatewithheat")){
                     completions.add("<eventId>");
                 }

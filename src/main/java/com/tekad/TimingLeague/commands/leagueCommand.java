@@ -261,6 +261,30 @@ public class leagueCommand implements CommandExecutor {
                         updateHolograms(league,1, player);
                     }
 
+                    case "TeamPoints" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
+                        if (args.length < 4) {
+                            sender.sendMessage(ChatColor.RED + "Format: /league <leaguename> points <teamName> <+/-num>");
+                            return true;
+                        }
+
+                        int points;
+                        try {
+                            points = Integer.parseInt(args[3]);
+                        } catch (NumberFormatException e) {
+                            sender.sendMessage(ChatColor.RED + "Invalid number: " + args[3]);
+                            return true;
+                        }
+
+                        league.addPointsToTeam(args[2], points);
+                        createOrUpdateHolograms(league, 1, player, "update");
+                        updateHolograms(league,1, player);
+                    }
+
                     case "standings" -> {
                         int page = 1;
                         boolean showTeams = false;
