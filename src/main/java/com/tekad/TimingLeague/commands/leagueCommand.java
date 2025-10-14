@@ -214,7 +214,7 @@ public class leagueCommand implements CommandExecutor {
                         }
                     }
 
-                    case "predictedDrivers" -> {
+                    case "predicteddrivers" -> {
                         if (!sender.hasPermission("timingleague.admin")) {
                             sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
                             return true;
@@ -261,7 +261,7 @@ public class leagueCommand implements CommandExecutor {
                         updateHolograms(league,1, player);
                     }
 
-                    case "TeamPoints" -> {
+                    case "teampoints" -> {
                         if (!sender.hasPermission("timingleague.admin")) {
                             sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
                             return true;
