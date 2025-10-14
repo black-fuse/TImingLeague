@@ -130,6 +130,16 @@ public class League {
         }
     }
 
+    public void setTeamPoints(String team, int points){
+        teamStandings.put(team, points);
+
+        for (Team daTeam : teamsList){
+            if (team.equals(daTeam.getName())){
+                daTeam.setPoints(teamStandings.get(team));
+            }
+        }
+    }
+
     public Team getTeamByDriver(String driver){
         return driversList.getOrDefault(driver, NoTeam);
     }

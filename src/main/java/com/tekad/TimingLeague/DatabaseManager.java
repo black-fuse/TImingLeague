@@ -320,8 +320,9 @@ public class DatabaseManager {
 
             Team team = new Team(teamName, color, league);
             team.setOwner(owner);
-            league.addPointsToTeam(team.getName(), points);
             league.addTeam(team);
+            league.setTeamPoints(team.getName(), points); // apparently the order in which you do these 2 things are very important
+            team.setPoints(points); //backup just incase
         }
         teamStmt.close();
 

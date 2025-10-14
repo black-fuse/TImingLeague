@@ -73,7 +73,7 @@ public class LeagueCommandCompleter implements TabCompleter {
                     Bukkit.getOnlinePlayers().forEach(p -> {
                         if (p.getName() != null) completions.add(p.getName());
                     });
-                } else if (sub.equals(("teamPoints"))){
+                } else if (sub.equals("teampoints") || sub.equals("teamPoints")){
                     completions.addAll(leagues.get(args[0]).getTeamsString());
                 } else if (sub.equals("updatewithheat")){
                     completions.add("<eventId>");
