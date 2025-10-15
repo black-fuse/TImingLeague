@@ -491,7 +491,7 @@ public class leagueCommand implements CommandExecutor {
                                 if (type.equals("main")) {
                                     success = league.addMainDriverToTeam(uuid, team.getName());
                                 } else if (type.equals("reserve")) {
-                                    success = team.addReserveDriver(uuid);
+                                    success = league.addReserveDriverToTeam(uuid, team.getName());
                                 } else {
                                     player.sendMessage("Invalid type. Use 'main' or 'reserve'.");
                                     return true;
