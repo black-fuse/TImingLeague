@@ -34,7 +34,7 @@ import java.util.UUID;
 
 import static me.makkuusen.timing.system.TimingSystem.getPlugin;
 
-public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, LogDatabase {
+public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, LogDatabase, TeamDatabase {
 
 
     @Override
@@ -58,7 +58,7 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
         try {
             var row = DB.getFirstRow("SELECT * FROM `ts_version` ORDER BY `date` DESC;");
 
-            int databaseVersion = 10;
+            int databaseVersion = 11;
             if (row == null) { // First startup
                 DB.executeInsert("INSERT INTO `ts_version` (`version`, `date`) VALUES(?, ?);",
                         databaseVersion,
@@ -135,6 +135,9 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
         }
         if (previousVersion < 10) {
             Version10.updateMySQL();
+        }
+        if (previousVersion < 11) {
+            Version11.updateMySQL();
         }
     }
 
@@ -373,6 +376,32 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
                       `trackId` int(11) NOT NULL,
                       `option` int(11) NOT NULL,
                       PRIMARY KEY (`id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    """);
+
+            DB.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS `ts_teams` (
+                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                      `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                      `creator` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                      `dateCreated` bigint(30) NOT NULL,
+                      `isRemoved` tinyint(1) NOT NULL DEFAULT '0',
+                      PRIMARY KEY (`id`),
+                      UNIQUE KEY `name` (`name`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    """);
+
+            DB.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS `ts_team_players` (
+                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                      `teamId` int(11) NOT NULL,
+                      `playerUuid` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                      `position` int(11) NOT NULL,
+                      `dateAdded` bigint(30) NOT NULL,
+                      PRIMARY KEY (`id`),
+                      FOREIGN KEY (`teamId`) REFERENCES `ts_teams`(`id`) ON DELETE CASCADE,
+                      UNIQUE KEY `team_player` (`teamId`, `playerUuid`),
+                      UNIQUE KEY `team_position` (`teamId`, `position`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                     """);
             return true;
@@ -1027,5 +1056,82 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
             e.printStackTrace();
             return false;
         }
+    }
+
+    // TeamDatabase implementation
+    @Override
+    public long createTeam(String name, UUID creator, long dateCreated) throws SQLException {
+        return DB.executeInsert("INSERT INTO ts_teams (name, creator, dateCreated, isRemoved) VALUES (?, ?, ?, ?)",
+                name, creator.toString(), dateCreated, 0);
+    }
+
+    @Override
+    public List<DbRow> selectTeams() throws SQLException {
+        return DB.getResults("SELECT * FROM ts_teams WHERE isRemoved = 0 ORDER BY name");
+    }
+
+    @Override
+    public DbRow selectTeam(int teamId) throws SQLException {
+        return DB.getFirstRow("SELECT * FROM ts_teams WHERE id = ? AND isRemoved = 0", teamId);
+    }
+
+    @Override
+    public void deleteTeam(int teamId) {
+        try {
+            // Delete team players first (foreign key constraint)
+            DB.executeUpdate("DELETE FROM ts_team_players WHERE teamId = ?", teamId);
+            // Actually delete the team instead of soft delete to allow name reuse
+            DB.executeUpdate("DELETE FROM ts_teams WHERE id = ?", teamId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void addPlayerToTeam(int teamId, UUID playerUuid, int position) throws SQLException {
+        DB.executeUpdate("INSERT INTO ts_team_players (teamId, playerUuid, position, dateAdded) VALUES (?, ?, ?, ?)",
+                teamId, playerUuid.toString(), position, System.currentTimeMillis() / 1000);
+    }
+
+
+
+    @Override
+    public List<DbRow> selectTeamPlayers(int teamId) throws SQLException {
+        return DB.getResults("SELECT * FROM ts_team_players WHERE teamId = ? ORDER BY position", teamId);
+    }
+
+    @Override
+    public boolean teamNameExists(String name) throws SQLException {
+        DbRow row = DB.getFirstRow("SELECT id FROM ts_teams WHERE name = ? AND isRemoved = 0", name);
+        return row != null;
+    }
+
+    @Override
+    public DbRow selectTeamByName(String name) throws SQLException {
+        return DB.getFirstRow("SELECT * FROM ts_teams WHERE name = ? AND isRemoved = 0", name);
+    }
+
+    @Override
+    public void removePlayerFromTeam(int teamId, UUID playerUuid) {
+        try {
+            DB.executeUpdate("DELETE FROM ts_team_players WHERE teamId = ? AND playerUuid = ?",
+                    teamId, playerUuid.toString());
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void teamSet(int teamId, String column, String value) {
+        DB.executeUpdateAsync("UPDATE ts_teams SET " + column + " = ? WHERE id = ?", value, teamId);
+    }
+
+    @Override
+    public int getNextPlayerPosition(int teamId) throws SQLException {
+        DbRow row = DB.getFirstRow("SELECT MAX(position) as maxPos FROM ts_team_players WHERE teamId = ?", teamId);
+        if (row == null || row.get("maxPos") == null) {
+            return 1;
+        }
+        return row.getInt("maxPos") + 1;
     }
 }

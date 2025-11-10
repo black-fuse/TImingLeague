@@ -31,7 +31,7 @@ public class SQLiteDatabase extends MySQLDatabase {
         try {
             var row = DB.getFirstRow("SELECT * FROM `ts_version` ORDER BY `date` DESC;");
 
-            int databaseVersion = 10;
+            int databaseVersion = 11;
             if (row == null) { // First startup
                 DB.executeInsert("INSERT INTO `ts_version` (`version`, `date`) VALUES(?, ?);",
                         databaseVersion,
@@ -97,6 +97,10 @@ public class SQLiteDatabase extends MySQLDatabase {
 
         if (previousVersion < 10) {
             Version10.updateSQLite();
+        }
+
+        if (previousVersion < 11) {
+            Version11.updateSQLite();
         }
     }
 
@@ -314,6 +318,27 @@ public class SQLiteDatabase extends MySQLDatabase {
                           `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                           `trackId` INTEGER NOT NULL,
                           `option` INTEGER NOT NULL
+                        );""");
+
+            DB.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS `ts_teams` (
+                          `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                          `name` TEXT NOT NULL UNIQUE,
+                          `creator` TEXT NOT NULL,
+                          `dateCreated` INTEGER NOT NULL,
+                          `isRemoved` INTEGER NOT NULL DEFAULT 0
+                        );""");
+
+            DB.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS `ts_team_players` (
+                          `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                          `teamId` INTEGER NOT NULL,
+                          `playerUuid` TEXT NOT NULL,
+                          `position` INTEGER NOT NULL,
+                          `dateAdded` INTEGER NOT NULL,
+                          FOREIGN KEY (teamId) REFERENCES ts_teams(id),
+                          UNIQUE(teamId, playerUuid),
+                          UNIQUE(teamId, position)
                         );""");
 
             return true;

@@ -51,6 +51,8 @@ public class TimingSystem extends JavaPlugin {
     private static TrackDatabase trackDatabase;
     @Getter
     private static LogDatabase logDatabase;
+    @Getter
+    private static TeamDatabase teamDatabase;
 
     public static TimingSystemConfiguration configuration;
     public static boolean enableLeaderboards = true;
@@ -110,6 +112,7 @@ public class TimingSystem extends JavaPlugin {
         PermissionRound.init(cr);
         PermissionHeat.init(cr);
         PermissionBoatUtilsMode.init(cr);
+        PermissionTeam.init(cr);
 
         ContextResolvers.loadCommandContextsAndCompletions(manager);
 
@@ -130,12 +133,14 @@ public class TimingSystem extends JavaPlugin {
         manager.registerCommand(new CommandGhost());
         manager.registerCommand(new CommandUnghost());
         manager.registerCommand(new CommandBoatUtilsModeEdit());
+        manager.registerCommand(new CommandTeam());
         taskChainFactory = BukkitTaskChainFactory.create(this);
 
         database = configuration.getDatabaseType();
         eventDatabase = configuration.getDatabaseType();
         trackDatabase = configuration.getDatabaseType();
         logDatabase = configuration.getDatabaseType();
+        teamDatabase = configuration.getDatabaseType();
 
         if (!database.initialize()) return;
         database.update();
@@ -143,6 +148,9 @@ public class TimingSystem extends JavaPlugin {
         TrackDatabase.loadTrackFinishesAsync();
         EventDatabase.initSynchronize();
         //LogDatabase.synchronize();
+        
+        // Initialize team system with lightweight cache structures (no bulk loading)
+        me.makkuusen.timing.system.team.TeamManager.initializeTeams();
 
         var tasks = new Tasks();
         tasks.startPlayerTimer(plugin);
@@ -207,6 +215,10 @@ public class TimingSystem extends JavaPlugin {
     @Override
     public void onDisable() {
         EventDatabase.getHeats().stream().filter(Heat::isActive).forEach(Heat::onShutdown);
+        
+        // Cleanup team system cache
+        me.makkuusen.timing.system.team.TeamManager.unload();
+        
         logger.info("Version " + getPluginMeta().getVersion() + " disabled.");
         scoreboardLibrary.close();
         TSListener.plugin = null;
