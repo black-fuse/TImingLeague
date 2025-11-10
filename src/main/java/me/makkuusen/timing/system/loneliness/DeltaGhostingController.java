@@ -46,6 +46,12 @@ public class DeltaGhostingController {
 
         Player leadingPlayer = leadingDriver.getTPlayer().getPlayer();
         Player trailingPlayer = trailingDriver.getTPlayer().getPlayer();
+        
+        // Check if players are online before attempting to hide entities
+        if (leadingPlayer == null || trailingPlayer == null) {
+            return;
+        }
+        
         Vehicle vehicle = (Vehicle) trailingPlayer.getVehicle();
 
         if (vehicle instanceof Boat) {
@@ -71,6 +77,12 @@ public class DeltaGhostingController {
 
         Player leadingPlayer = leadingDriver.getTPlayer().getPlayer();
         Player trailingPlayer = trailingDriver.getTPlayer().getPlayer();
+        
+        // Check if players are online before attempting to show entities
+        if (leadingPlayer == null || trailingPlayer == null) {
+            return;
+        }
+        
         Vehicle vehicle = (Vehicle) trailingPlayer.getVehicle();
 
         if (vehicle instanceof Boat) {
