@@ -1,6 +1,7 @@
 package me.makkuusen.timing.system.database;
 
 import co.aikar.idb.DbRow;
+import me.makkuusen.timing.system.team.Team;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -97,4 +98,11 @@ public interface TeamDatabase {
      * @throws SQLException if database operation fails
      */
     int getNextPlayerPosition(int teamId) throws SQLException;
+
+    /**
+     * Get a team by ID
+     * @param teamId the team ID
+     * @return Optional containing the team if found
+     */
+    java.util.Optional<Team> getTeam(Integer teamId);
 }

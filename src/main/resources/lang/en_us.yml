@@ -117,6 +117,11 @@ error:
   failed_to_delete_team: "&eFailed to delete team '%name%'."
   player_already_in_team: "&ePlayer %player% is already in team %team%."
   player_not_in_team: "&ePlayer %player% is not in team %team%."
+  driver_swap_not_in_pit: "&eYou must be in a pit region to swap drivers."
+  driver_swap_driver_online: "&eCannot replace online driver. Use right-click in pit region instead."
+  driver_swap_not_same_team: "&eYou are not on the same team as that driver."
+  driver_swap_not_in_active_heat: "&eYou are not in an active team heat."
+  driver_swap_boat_switching_disabled: "&eDriver swapping is only available in boat switching mode."
 
 warning:
   dangerous_command: "&wThis command is dangerous, Type \"%command%\" to use it anyways"
@@ -227,6 +232,10 @@ success:
   team_deleted: "&sTeam '%name%' has been deleted."
   player_added_to_team: "&sPlayer %player% has been added to team %team%."
   player_removed_from_team: "&sPlayer %player% has been removed from team %team%."
+  driver_swap_success_new: "&sYou are now the active driver for your team!"
+  driver_swap_success_old: "&s%player% has taken over as the active driver."
+  driver_swap_offline_success: "&sYou are now the active driver! Spawned at checkpoint %checkpoint%."
+  driver_swap_offline_success_start: "&sYou are now the active driver! Spawned at start line."
 
 info:
   page_current_of_max: "&1page &l&2%current% &r&1of &l&2%max%"

@@ -641,6 +641,15 @@ public class TSListener implements Listener {
                 if (driver.getState() == DriverState.STARTING) {
                     driver.start();
                     heat.updatePositions();
+                    
+                    if (heat.isBoatSwitchingEnabled()) {
+                        var maybeTeamEntry = heat.getTeamEntryByPlayer(player.getUniqueId());
+                        if (maybeTeamEntry.isPresent()) {
+                            var teamEntry = maybeTeamEntry.get();
+                            teamEntry.updateRaceProgress(1, 0);
+                        }
+                    }
+                    
                     ApiUtilities.msgConsole("Starting : " + player.getName() + " in " + heat.getName());
                     if (heat.getGhostingDelta() != null) {
                         checkDeltas(driver);
@@ -664,6 +673,15 @@ public class TSListener implements Listener {
                     }
                     heat.passLap(driver);
                     heat.updatePositions();
+                    
+                    if (heat.isBoatSwitchingEnabled()) {
+                        var maybeTeamEntry = heat.getTeamEntryByPlayer(player.getUniqueId());
+                        if (maybeTeamEntry.isPresent()) {
+                            var teamEntry = maybeTeamEntry.get();
+                            teamEntry.updateRaceProgress(driver.getLaps().size(), 0);
+                        }
+                    }
+                    
                     if (heat.getGhostingDelta() != null) {
                         checkDeltas(driver);
                     }
@@ -685,6 +703,15 @@ public class TSListener implements Listener {
                     }
                     heat.passLap(driver);
                     heat.updatePositions();
+                    
+                    if (heat.isBoatSwitchingEnabled()) {
+                        var maybeTeamEntry = heat.getTeamEntryByPlayer(player.getUniqueId());
+                        if (maybeTeamEntry.isPresent()) {
+                            var teamEntry = maybeTeamEntry.get();
+                            teamEntry.updateRaceProgress(driver.getLaps().size(), 0);
+                        }
+                    }
+                    
                     return;
                 }
             }
@@ -743,6 +770,14 @@ public class TSListener implements Listener {
             if (maybeCheckpoint.isPresent() && maybeCheckpoint.get().getRegionIndex() == lap.getNextCheckpoint()) {
                 lap.passNextCheckpoint(TimingSystem.currentTime);
                 heat.updatePositions();
+
+                if (heat.isBoatSwitchingEnabled()) {
+                    var maybeTeamEntry = heat.getTeamEntryByPlayer(player.getUniqueId());
+                    if (maybeTeamEntry.isPresent()) {
+                        var teamEntry = maybeTeamEntry.get();
+                        teamEntry.updateRaceProgress(driver.getLaps().size(), maybeCheckpoint.get().getRegionIndex());
+                    }
+                }
 
                 if (heat.getGhostingDelta() != null) {
                     checkDeltas(driver);

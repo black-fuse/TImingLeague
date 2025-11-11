@@ -31,7 +31,7 @@ public class SQLiteDatabase extends MySQLDatabase {
         try {
             var row = DB.getFirstRow("SELECT * FROM `ts_version` ORDER BY `date` DESC;");
 
-            int databaseVersion = 11;
+            int databaseVersion = 12;
             if (row == null) { // First startup
                 DB.executeInsert("INSERT INTO `ts_version` (`version`, `date`) VALUES(?, ?);",
                         databaseVersion,
@@ -101,6 +101,10 @@ public class SQLiteDatabase extends MySQLDatabase {
 
         if (previousVersion < 11) {
             Version11.updateSQLite();
+        }
+
+        if (previousVersion < 12) {
+            Version12.updateSQLite();
         }
     }
 
@@ -339,6 +343,36 @@ public class SQLiteDatabase extends MySQLDatabase {
                           FOREIGN KEY (teamId) REFERENCES ts_teams(id),
                           UNIQUE(teamId, playerUuid),
                           UNIQUE(teamId, position)
+                        );""");
+
+            DB.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS `ts_team_heat_entries` (
+                          `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                          `heatId` INTEGER NOT NULL,
+                          `teamId` INTEGER NOT NULL,
+                          `activeDriverUUID` TEXT DEFAULT NULL,
+                          `currentLap` INTEGER NOT NULL DEFAULT 0,
+                          `currentCheckpoint` INTEGER NOT NULL DEFAULT 0,
+                          `startTime` INTEGER DEFAULT NULL,
+                          `endTime` INTEGER DEFAULT NULL,
+                          `position` INTEGER DEFAULT NULL,
+                          `startPosition` INTEGER NOT NULL,
+                          `pits` INTEGER NOT NULL DEFAULT 0,
+                          `finished` INTEGER NOT NULL DEFAULT 0,
+                          FOREIGN KEY (heatId) REFERENCES ts_heats(id) ON DELETE CASCADE,
+                          FOREIGN KEY (teamId) REFERENCES ts_teams(id) ON DELETE CASCADE
+                        );""");
+
+            DB.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS `ts_team_laps` (
+                          `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                          `teamHeatEntryId` INTEGER NOT NULL,
+                          `lapNumber` INTEGER NOT NULL,
+                          `lapStart` INTEGER NOT NULL,
+                          `lapEnd` INTEGER DEFAULT NULL,
+                          `driverUUID` TEXT NOT NULL,
+                          `pitted` INTEGER NOT NULL DEFAULT 0,
+                          FOREIGN KEY (teamHeatEntryId) REFERENCES ts_team_heat_entries(id) ON DELETE CASCADE
                         );""");
 
             return true;

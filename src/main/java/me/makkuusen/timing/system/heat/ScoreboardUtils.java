@@ -72,6 +72,29 @@ public class ScoreboardUtils {
     }
 
     public static Component paddName(Driver driver, boolean compact) {
+        // If boat switching is enabled, show team name instead of player name
+        if (driver.getHeat().isBoatSwitchingEnabled()) {
+            var maybeTeamEntry = driver.getHeat().getTeamEntryByPlayer(driver.getTPlayer().getUniqueId());
+            if (maybeTeamEntry.isPresent()) {
+                var teamEntry = maybeTeamEntry.get();
+                String teamName = teamEntry.getTeam() != null ? teamEntry.getTeam().getDisplayName() : driver.getTPlayer().getName();
+                
+                TextComponent.Builder c = Component.text().content("");
+                if (compact) {
+                    String shortName = teamName.length() > 4 ? teamName.substring(0, 4) : teamName;
+                    c.append(Component.text(shortName));
+                    int spaces = 4 - shortName.length();
+                    c.append(Component.text(" ".repeat(Math.max(0, spaces))));
+                } else {
+                    c.append(Component.text(teamName));
+                    int spaces = 16 - teamName.length();
+                    c.append(Component.text(" ".repeat(Math.max(0, spaces))));
+                }
+                return c.build();
+            }
+        }
+        
+        // Default: show player name
         return paddName(driver.getTPlayer(), compact);
     }
 

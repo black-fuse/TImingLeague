@@ -22,10 +22,13 @@ import me.makkuusen.timing.system.participant.Streaker;
 import me.makkuusen.timing.system.round.FinalRound;
 import me.makkuusen.timing.system.round.QualificationRound;
 import me.makkuusen.timing.system.round.Round;
+import me.makkuusen.timing.system.team.Team;
 import me.makkuusen.timing.system.track.locations.TrackLocation;
+import me.makkuusen.timing.system.tplayer.TPlayer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -33,6 +36,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static me.makkuusen.timing.system.loneliness.DeltaGhostingController.checkDeltas;
@@ -50,6 +54,8 @@ public class Heat {
     private HeatState heatState;
     private HashMap<UUID, Driver> drivers = new HashMap<>();
     private HashMap<UUID, Streaker> streakers = new HashMap<>();
+    private HashMap<Integer, TeamHeatEntry> teamEntries = new HashMap<>();
+    private HashMap<UUID, Integer> playerToTeam = new HashMap<>();
     private GridManager gridManager;
     private List<Driver> startPositions = new ArrayList<>();
     private List<Driver> livePositions = new ArrayList<>();
@@ -94,6 +100,10 @@ public class Heat {
         startDelay = data.get("startDelay") == null ? round instanceof FinalRound ? TimingSystem.configuration.getFinalStartDelayInMS() : TimingSystem.configuration.getQualyStartDelayInMS() : data.getInt("startDelay");
         fastestLapUUID = data.getString("fastestLapUUID") == null ? null : UUID.fromString(data.getString("fastestLapUUID"));
         gridManager = new GridManager(round instanceof QualificationRound);
+        
+        if (isBoatSwitchingEnabled()) {
+            loadTeamEntries();
+        }
     }
 
     public String getName() {
@@ -191,6 +201,13 @@ public class Heat {
         setHeatState(HeatState.RACING);
         updateScoreboard();
         setStartTime(TimingSystem.currentTime);
+        
+        if (isBoatSwitchingEnabled()) {
+            for (TeamHeatEntry entry : teamEntries.values()) {
+                entry.setStartTime(TimingSystem.currentTime);
+            }
+        }
+        
         if (round instanceof QualificationRound) {
             gridManager.startDriversWithDelay(getStartDelay(), true, getStartPositions());
             return;
@@ -215,6 +232,22 @@ public class Heat {
         setHeatState(HeatState.FINISHED);
         setEndTime(TimingSystem.currentTime);
         DeltaGhostingController.clearDeltaGhosts(this);
+        
+        if (isBoatSwitchingEnabled()) {
+            int position = 1;
+            for (TeamHeatEntry entry : teamEntries.values()) {
+                if (entry.getEndTime() == null) {
+                    entry.setEndTime(TimingSystem.currentTime);
+                }
+                if (!entry.isFinished()) {
+                    entry.setFinished(true);
+                }
+                if (entry.getPosition() == null) {
+                    entry.setPosition(position++);
+                }
+            }
+        }
+        
         Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(TimingSystem.getPlugin(), () -> {
             getDrivers().values().forEach(Driver::removeScoreboard);
             scoreboard.removeScoreboards();
@@ -277,6 +310,19 @@ public class Heat {
         setFastestLapUUID(null);
         setLivePositions(new ArrayList<>());
         gridManager.clearArmorstands();
+        
+        if (isBoatSwitchingEnabled()) {
+            for (TeamHeatEntry entry : teamEntries.values()) {
+                entry.setStartTime(null);
+                entry.setEndTime(null);
+                entry.setPosition(null);
+                entry.setFinished(false);
+                entry.updateRaceProgress(0, 0);
+                entry.setPits(0);
+                entry.getLaps().clear();
+            }
+        }
+        
         getDrivers().values().forEach(driver -> {
             driver.reset();
             EventDatabase.removePlayerFromRunningHeat(driver.getTPlayer().getUniqueId());
@@ -557,6 +603,11 @@ public class Heat {
             scoreboard.removeScoreboards();
         }
         drivers.values().forEach(Driver::onShutdown);
+        
+        if (isBoatSwitchingEnabled()) {
+            teamEntries.clear();
+            playerToTeam.clear();
+        }
     }
 
     public void reverseGrid(Integer percentage) {
@@ -581,5 +632,114 @@ public class Heat {
         }
         startPositions.sort(Comparator.comparingInt(Driver::getStartPosition));
         livePositions.sort(Comparator.comparingInt(Driver::getPosition));
+    }
+
+    public boolean isBoatSwitchingEnabled() {
+        return boatSwitching != null && boatSwitching;
+    }
+
+    public Optional<TeamHeatEntry> getTeamEntry(int teamId) {
+        return Optional.ofNullable(teamEntries.get(teamId));
+    }
+
+    public Optional<TeamHeatEntry> getTeamEntryByPlayer(UUID playerUUID) {
+        Integer teamId = playerToTeam.get(playerUUID);
+        if (teamId == null) {
+            return Optional.empty();
+        }
+        return getTeamEntry(teamId);
+    }
+
+    public void addTeamToHeat(Team team, int startPosition) {
+        if (!isBoatSwitchingEnabled()) {
+            throw new IllegalStateException("Cannot add team to heat: boat switching is not enabled");
+        }
+
+        DbRow entryData = TimingSystem.getEventDatabase().teamHeatEntryNew(id, team.getId(), startPosition);
+        TeamHeatEntry entry = new TeamHeatEntry(entryData, this);
+
+        UUID firstOnlinePlayer = null;
+        for (TPlayer player : team.getPlayers()) {
+            if (player.getPlayer() != null && player.getPlayer().isOnline()) {
+                firstOnlinePlayer = player.getUniqueId();
+                break;
+            }
+        }
+
+        if (firstOnlinePlayer == null && !team.getPlayers().isEmpty()) {
+            firstOnlinePlayer = team.getPlayers().get(0).getUniqueId();
+        }
+
+        if (firstOnlinePlayer != null) {
+            entry.setActiveDriver(firstOnlinePlayer);
+        }
+
+        teamEntries.put(team.getId(), entry);
+        for (TPlayer player : team.getPlayers()) {
+            playerToTeam.put(player.getUniqueId(), team.getId());
+        }
+    }
+
+    public boolean removeTeamFromHeat(int teamId) {
+        if (!isBoatSwitchingEnabled()) {
+            throw new IllegalStateException("Cannot remove team: boat switching is not enabled");
+        }
+
+        if (heatState != HeatState.SETUP && heatState != HeatState.LOADED) {
+            return false;
+        }
+
+        TeamHeatEntry entry = teamEntries.get(teamId);
+        if (entry == null) {
+            return false;
+        }
+
+        TPlayer activeDriver = entry.getActiveDriver();
+        if (activeDriver != null && drivers.containsKey(activeDriver.getUniqueId())) {
+            Driver driver = drivers.get(activeDriver.getUniqueId());
+            removeDriver(driver);
+        }
+
+        if (entry.getTeam() != null) {
+            for (TPlayer player : entry.getTeam().getPlayers()) {
+                playerToTeam.remove(player.getUniqueId());
+            }
+        }
+
+        TimingSystem.getEventDatabase().teamHeatEntryRemove(entry.getId());
+
+        teamEntries.remove(teamId);
+
+        return true;
+    }
+
+    public void swapTeamDriver(TeamHeatEntry entry, UUID newDriverUUID) {
+        if (!isBoatSwitchingEnabled()) {
+            throw new IllegalStateException("Cannot swap driver: boat switching is not enabled");
+        }
+
+        if (!entry.isPlayerInTeam(newDriverUUID)) {
+            throw new IllegalArgumentException("Player is not in the team");
+        }
+
+        entry.swapDriver(newDriverUUID);
+    }
+
+    private void loadTeamEntries() {
+        try {
+            List<DbRow> entries = TimingSystem.getEventDatabase().selectTeamHeatEntries(id);
+            for (DbRow data : entries) {
+                TeamHeatEntry entry = new TeamHeatEntry(data, this);
+                teamEntries.put(entry.getTeam().getId(), entry);
+                
+                if (entry.getTeam() != null) {
+                    for (TPlayer player : entry.getTeam().getPlayers()) {
+                        playerToTeam.put(player.getUniqueId(), entry.getTeam().getId());
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            ApiUtilities.msgConsole("Failed to load team heat entries for heat " + id + ": " + e.getMessage());
+        }
     }
 }
