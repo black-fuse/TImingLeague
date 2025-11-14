@@ -157,8 +157,24 @@ public class LonelinessController implements Listener {
 
     private static void showHeatPlayersOnly(Player player, Heat heat) {
         for (Player otherPlayer : getOtherOnlinePlayers(player)) {
+            boolean shouldShow = false;
+            
+            // Check if player is a driver or streaker
             if (heat.getDrivers().containsKey(otherPlayer.getUniqueId()) || 
                 heat.getStreakers().containsKey(otherPlayer.getUniqueId())) {
+                shouldShow = true;
+            }
+            
+            // In boat switching heats, also show all team members
+            if (!shouldShow && heat.isBoatSwitchingEnabled()) {
+                // Check if player is in any team in this heat
+                var teamEntry = heat.getTeamEntryByPlayer(otherPlayer.getUniqueId());
+                if (teamEntry.isPresent()) {
+                    shouldShow = true;
+                }
+            }
+            
+            if (shouldShow) {
                 showPlayerAndCustomBoat(player, otherPlayer);
             } else {
                 hidePlayerAndCustomBoat(player, otherPlayer);
@@ -232,9 +248,16 @@ public class LonelinessController implements Listener {
 
         Optional<Driver> targetMaybeDriver = getDriverFromRunningHeat(targetPlayer);
         boolean targetIsStreaker = viewingHeat.getStreakers().containsKey(targetPlayer.getUniqueId());
+        boolean targetIsTeamMember = false;
+        
+        // In boat switching heats, check if target is a team member
+        if (viewingHeat.isBoatSwitchingEnabled()) {
+            var targetTeamEntry = viewingHeat.getTeamEntryByPlayer(targetPlayer.getUniqueId());
+            targetIsTeamMember = targetTeamEntry.isPresent();
+        }
 
-        // If target is neither a driver nor a streaker in the viewing player's heat, hide them
-        if (!targetMaybeDriver.isPresent() && !targetIsStreaker) {
+        // If target is neither a driver, streaker, nor team member in the viewing player's heat, hide them
+        if (!targetMaybeDriver.isPresent() && !targetIsStreaker && !targetIsTeamMember) {
             hidePlayerAndCustomBoat(viewingPlayer, targetPlayer);
             return;
         }

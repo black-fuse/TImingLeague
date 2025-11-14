@@ -287,8 +287,15 @@ public class DriverSwapHandler {
         
         EventDatabase.addPlayerToRunningHeat(newDriverObj);
         
+        // Update TeamHeatEntry with new active driver
         entry.swapDriver(newDriverUUID);
         
+        // If old driver held the fastest lap, transfer it to new driver
+        if (heat.getFastestLapUUID() != null && heat.getFastestLapUUID().equals(oldDriverUUID)) {
+            heat.setFastestLapUUID(newDriverUUID);
+        }
+        
+        // Remove old boat if it exists
         if (boat != null) {
             boat.remove();
         }

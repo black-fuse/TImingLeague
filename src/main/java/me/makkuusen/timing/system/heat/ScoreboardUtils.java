@@ -125,6 +125,7 @@ public class ScoreboardUtils {
         }
 
         TextComponent.Builder b = Component.text().content(String.valueOf(pos)).color(posColour);
+
         boolean hasFastestLap = driver.getHeat().getFastestLapUUID() == driver.getTPlayer().getUniqueId();
 
         if(hasFastestLap) b.decorate(TextDecoration.UNDERLINED);
