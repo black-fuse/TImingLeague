@@ -25,6 +25,7 @@ import org.bukkit.entity.Player;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -305,21 +306,19 @@ public class DriverSwapHandler {
             // Offline replacement: Reset to checkpoint position
             Location checkpointLoc = entry.getLastCheckpointLocation();
             if (checkpointLoc != null) {
-                ApiUtilities.spawnBoatAndAddPlayerWithBoatUtils(
-                    newDriver, 
-                    checkpointLoc, 
-                    heat.getEvent().getTrack(), 
-                    true
+                ApiUtilities.teleportPlayerAndSpawnBoat(
+                        Objects.requireNonNull(newDriver.getPlayer()),
+                        heat.getEvent().getTrack(),
+                        checkpointLoc
                 );
             }
         } else {
             // Right-click swap: Transfer boat control at current location
             if (boatLocation != null) {
-                ApiUtilities.spawnBoatAndAddPlayerWithBoatUtils(
-                    newDriver, 
-                    boatLocation, 
-                    heat.getEvent().getTrack(), 
-                    true
+                ApiUtilities.teleportPlayerAndSpawnBoat(
+                        Objects.requireNonNull(newDriver.getPlayer()),
+                        heat.getEvent().getTrack(),
+                        boatLocation
                 );
             }
         }
