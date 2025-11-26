@@ -71,6 +71,7 @@ public class Heat {
     private Integer ghostingDelta;
     private Boolean boatSwitching;
     private Boolean drs;
+    private Integer drsDowntime;
     private SpectatorScoreboard scoreboard;
     private Instant lastScoreboardUpdate = Instant.now();
 
@@ -99,6 +100,7 @@ public class Heat {
         ghostingDelta = data.get("ghostingDelta") == null ? null : data.getInt("ghostingDelta");
         boatSwitching = data.get("boatSwitching") instanceof Boolean ? data.get("boatSwitching") : data.get("boatSwitching") == null ? null : data.get("boatSwitching").equals(1);
         drs = data.get("drs") instanceof Boolean ? data.get("drs") : data.get("drs") == null ? false : data.get("drs").equals(1);
+        drsDowntime = data.get("drsDowntime") == null ? 1 : data.getInt("drsDowntime");
         startDelay = data.get("startDelay") == null ? round instanceof FinalRound ? TimingSystem.configuration.getFinalStartDelayInMS() : TimingSystem.configuration.getQualyStartDelayInMS() : data.getInt("startDelay");
         fastestLapUUID = data.getString("fastestLapUUID") == null ? null : UUID.fromString(data.getString("fastestLapUUID"));
         gridManager = new GridManager(round instanceof QualificationRound);
@@ -578,6 +580,11 @@ public class Heat {
     public void setDrs(Boolean drs) {
         this.drs = drs;
         TimingSystem.getEventDatabase().heatSet(getId(), "drs", drs);
+    }
+
+    public void setDrsDowntime(Integer drsDowntime) {
+        this.drsDowntime = drsDowntime;
+        TimingSystem.getEventDatabase().heatSet(getId(), "drsDowntime", drsDowntime);
     }
 
     public void setCollisionMode(CollisionMode collisionMode) {

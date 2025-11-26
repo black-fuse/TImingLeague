@@ -389,6 +389,14 @@ public class CommandHeat extends BaseCommand {
         Text.send(player, Success.SAVED);
     }
 
+    @Subcommand("set drsdowntime")
+    @CommandCompletion("@heat <laps>")
+    @CommandPermission("%permissionheat_set_drsdowntime")
+    public static void onHeatSetDrsDowntime(Player player, Heat heat, Integer laps) {
+        heat.setDrsDowntime(laps);
+        Text.send(player, Success.SAVED);
+    }
+
     @Subcommand("set lonely")
     @CommandCompletion("@heat true|false")
     @CommandPermission("%permissionheat_set_lonely")

@@ -280,6 +280,7 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
                       `ghostingDelta` int(11) DEFAULT NULL,
                       `boatSwitching` tinyint(1) DEFAULT NULL,
                       `drs` tinyint(1) NOT NULL DEFAULT '0',
+                      `drsDowntime` int(11) DEFAULT NULL,
                       `isRemoved` tinyint(1) NOT NULL DEFAULT '0',
                       PRIMARY KEY (`id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;""");

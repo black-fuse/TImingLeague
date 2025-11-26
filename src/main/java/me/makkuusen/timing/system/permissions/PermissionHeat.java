@@ -24,6 +24,7 @@ public enum PermissionHeat implements Permissions {
     SET_GHOSTINGDELTA,
     SET_BOATSWITCHING,
     SET_DRS,
+    SET_DRSDOWNTIME,
     SET_DRIVERPOSITION,
     SET_REVERSEGRID,
     ADD_DRIVER,

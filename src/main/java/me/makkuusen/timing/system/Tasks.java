@@ -157,7 +157,7 @@ public class Tasks {
             UUID playerId = driver.getTPlayer().getUniqueId();
             
             if (DrsManager.hasDrsActive(playerId)) {
-                return "&a&lDRS";
+                return "&s&lDRS";
             }
             else if (DrsManager.hasDrsEnabled(playerId)) {
                 return "&wDRS";
@@ -180,11 +180,11 @@ public class Tasks {
                 
                 String delta = QualifyHeat.getBestLapCheckpointDelta(driver, driver.getCurrentLap().getLatestCheckpoint());
                 
-                return ApiUtilities.formatAsTime(lapTime) + delta;
+                return "&2" + ApiUtilities.formatAsTime(lapTime) + delta;
             }
         }
         
-        return pits + "&1/&2&l" + totalPits + "&r&1 Pits";
+        return "&2&l" + pits + "&1/&2&l" + totalPits + "&r&1 Pits";
     }
 
     private static void sendQualificationDriverActionBar(Player player, Driver driver) {

@@ -33,8 +33,14 @@ public class DrsListener implements Listener {
 
         Optional<Driver> maybeDriver = EventDatabase.getDriverFromRunningHeat(player.getUniqueId());
         if (maybeDriver.isPresent()) {
-            if (maybeDriver.get().getHeat().getDrs() != null && maybeDriver.get().getHeat().getDrs()) {
-                checkDrsRegions(player, maybeDriver.get().getHeat().getEvent().getTrack());
+            Driver driver = maybeDriver.get();
+            if (driver.getHeat().getDrs() != null && driver.getHeat().getDrs()) {
+                int currentLap = driver.getLaps().size();
+                Integer drsDowntime = driver.getHeat().getDrsDowntime();
+                
+                if (drsDowntime == null || currentLap > drsDowntime) {
+                    checkDrsRegions(player, driver.getHeat().getEvent().getTrack());
+                }
             }
             return;
         }

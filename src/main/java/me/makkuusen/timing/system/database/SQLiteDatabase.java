@@ -234,6 +234,7 @@ public class SQLiteDatabase extends MySQLDatabase {
                           `boatSwitching` INTEGER DEFAULT NULL,
                           `collisionMode` TEXT DEFAULT NULL,
                           `drs` INTEGER NOT NULL DEFAULT 0,
+                          `drsDowntime` INTEGER DEFAULT NULL,
                           `isRemoved` INTEGER NOT NULL DEFAULT '0'
                         );""");
 
