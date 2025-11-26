@@ -163,6 +163,10 @@ public class DriverSwapHandler {
         if (!entry.isPlayerInTeam(target.getUniqueId())) {
             return SwapValidation.invalid(Error.DRIVER_SWAP_NOT_SAME_TEAM, true);
         }
+
+        if (requester.getUniqueId().equals(entry.getActiveDriverUUID())) {
+            return SwapValidation.invalid(null, true);
+        }
         
         if (!target.getUniqueId().equals(entry.getActiveDriverUUID())) {
             return SwapValidation.invalid(Error.DRIVER_SWAP_NOT_SAME_TEAM, true);
