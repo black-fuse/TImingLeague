@@ -368,7 +368,7 @@ broadcast:
   heat_finish_title: "&aYou finished"
 
 actionbar:
-  race: "&1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Pits"
+  race: "&1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 |&2&l %pits%"
   race_spectator: "&2&l%name% > &1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Pits"
 
 gui:

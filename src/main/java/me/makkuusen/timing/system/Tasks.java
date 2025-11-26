@@ -4,6 +4,7 @@ import com.sk89q.worldedit.math.BlockVector2;
 import me.makkuusen.timing.system.database.EventDatabase;
 import me.makkuusen.timing.system.database.TSDatabase;
 import me.makkuusen.timing.system.database.TrackDatabase;
+import me.makkuusen.timing.system.drs.DrsManager;
 import me.makkuusen.timing.system.heat.QualifyHeat;
 import me.makkuusen.timing.system.participant.Driver;
 import me.makkuusen.timing.system.participant.DriverState;
@@ -137,11 +138,53 @@ public class Tasks {
     private static void displayDriverTimer(Player player, Driver driver) {
         if (driver.getHeat().getRound() instanceof FinalRound) {
             if (!driver.isFinished()) {
-                player.sendActionBar(Text.get(player, ActionBar.RACE,"%laps%", String.valueOf(driver.getLaps().size()), "%totalLaps%", String.valueOf(driver.getHeat().getTotalLaps()), "%pos%", String.valueOf(driver.getPosition()), "%pits%", String.valueOf(driver.getPits()), "%totalPits%", String.valueOf(driver.getHeat().getTotalPits())));
+                String posDisplay = getPositionOrDrsDisplay(driver);
+                String pitsDisplay = getPitsOrLapTimeDisplay(driver);
+                
+                player.sendActionBar(Text.get(player, ActionBar.RACE,
+                    "%laps%", String.valueOf(driver.getLaps().size()),
+                    "%totalLaps%", String.valueOf(driver.getHeat().getTotalLaps()),
+                    "%pos%", posDisplay,
+                    "%pits%", pitsDisplay));
             }
         } else if (driver.getHeat().getRound() instanceof QualificationRound) {
             sendQualificationDriverActionBar(player, driver);
         }
+    }
+    
+    private static String getPositionOrDrsDisplay(Driver driver) {
+        if (driver.getHeat().getDrs() != null && driver.getHeat().getDrs()) {
+            UUID playerId = driver.getTPlayer().getUniqueId();
+            
+            if (DrsManager.hasDrsActive(playerId)) {
+                return "&a&lDRS";
+            }
+            else if (DrsManager.hasDrsEnabled(playerId)) {
+                return "&wDRS";
+            }
+        }
+        
+        return "P" + String.valueOf(driver.getPosition());
+    }
+    
+    private static String getPitsOrLapTimeDisplay(Driver driver) {
+        Integer totalPits = driver.getHeat().getTotalPits();
+        int pits = driver.getPits();
+        
+        if (totalPits != null && pits >= totalPits) {
+            if (driver.getCurrentLap() != null && driver.getCurrentLap().getLapStart() != null) {
+                long lapTime = Duration.between(
+                    driver.getCurrentLap().getLapStart(), 
+                    TimingSystem.currentTime
+                ).toMillis();
+                
+                String delta = QualifyHeat.getBestLapCheckpointDelta(driver, driver.getCurrentLap().getLatestCheckpoint());
+                
+                return ApiUtilities.formatAsTime(lapTime) + delta;
+            }
+        }
+        
+        return pits + "&1/&2&l" + totalPits + "&r&1 Pits";
     }
 
     private static void sendQualificationDriverActionBar(Player player, Driver driver) {
@@ -221,6 +264,10 @@ public class Tasks {
             particle = Particle.HEART;
         } else if (region.getRegionType().equals(TrackRegion.RegionType.INPIT)) {
             particle = Particle.WITCH;
+        } else if (region.getRegionType().equals(TrackRegion.RegionType.DRSDETECT)) {
+            particle = Particle.CHERRY_LEAVES;
+        } else if (region.getRegionType().equals(TrackRegion.RegionType.DRSACTIVATE)) {
+            particle = Particle.RAID_OMEN;
         } else {
             particle = Particle.WAX_OFF;
         }
@@ -319,6 +366,10 @@ public class Tasks {
             lastLocation = loc.clone();
         }
         drawLine(player, particle, lastLocation, firstLocation);
+    }
+
+    public void startDrsCleanup(TimingSystem plugin) {
+        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, DrsManager::cleanupOldDetections, 100, 100);
     }
 }
 

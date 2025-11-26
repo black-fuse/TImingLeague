@@ -12,6 +12,7 @@ import me.makkuusen.timing.system.database.*;
 import me.makkuusen.timing.system.gui.GUIListener;
 import me.makkuusen.timing.system.gui.GuiCommon;
 import me.makkuusen.timing.system.heat.Heat;
+import me.makkuusen.timing.system.listeners.DrsListener;
 import me.makkuusen.timing.system.listeners.DriverSwapListener;
 import me.makkuusen.timing.system.listeners.GSitListener;
 import me.makkuusen.timing.system.listeners.ReadyCheckListener;
@@ -90,6 +91,7 @@ public class TimingSystem extends JavaPlugin {
         pm.registerEvents(new LonelinessController(plugin), plugin);
         pm.registerEvents(new ReadyCheckListener(), plugin);
         pm.registerEvents(new DriverSwapListener(), plugin);
+        pm.registerEvents(new DrsListener(), plugin);
 
         if (pm.isPluginEnabled("GSit")) {
             pm.registerEvents(new GSitListener(), plugin);
@@ -158,6 +160,7 @@ public class TimingSystem extends JavaPlugin {
         tasks.startPlayerTimer(plugin);
         tasks.startParticleSpawner(plugin);
         tasks.generateTotalTime(plugin);
+        tasks.startDrsCleanup(plugin);
 
 
         // Small check to make sure that PlaceholderAPI is installed

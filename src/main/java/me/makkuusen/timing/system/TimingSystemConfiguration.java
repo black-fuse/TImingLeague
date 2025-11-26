@@ -27,6 +27,10 @@ public class TimingSystemConfiguration {
     private final String sqlPassword;
     private int scoreboardMaxRows;
     private Integer scoreboardInterval;
+    private Integer drsMinDelta;
+    private Integer drsMaxDelta;
+    private Integer drsDuration;
+    private Double drsForwardAccel;
     private final boolean frostHexAddOnEnabled;
     private final boolean medalsAddOnEnabled;
     private final boolean medalsShowNextMedal;
@@ -66,6 +70,10 @@ public class TimingSystemConfiguration {
 
         scoreboardMaxRows = plugin.getConfig().getInt("scoreboard.maxRows", 15);
         scoreboardInterval = ApiUtilities.parseDurationToMillis(plugin.getConfig().getString("scoreboard.interval","1000"));
+        drsMinDelta = plugin.getConfig().getInt("drs.minDelta", 650);
+        drsMaxDelta = plugin.getConfig().getInt("drs.maxDelta", 1150);
+        drsDuration = plugin.getConfig().getInt("drs.duration", 2000);
+        drsForwardAccel = plugin.getConfig().getDouble("drs.forwardAccel", 0.06);
         frostHexAddOnEnabled = plugin.getConfig().getBoolean("frosthexaddon.enabled");
         medalsAddOnEnabled = plugin.getConfig().getBoolean("medalsaddon.enabled");
         medalsShowNextMedal = plugin.getConfig().getBoolean("medalsaddon.showNextMedal");
@@ -122,6 +130,22 @@ public class TimingSystemConfiguration {
 
     public void setScoreboardInterval(String value) {
         scoreboardInterval =  ApiUtilities.parseDurationToMillis(value);
+    }
+
+    public void setDrsMinDelta(int value) {
+        drsMinDelta = value;
+    }
+
+    public void setDrsMaxDelta(int value) {
+        drsMaxDelta = value;
+    }
+
+    public void setDrsDuration(int value) {
+        drsDuration = value;
+    }
+
+    public void setDrsForwardAccel(double value) {
+        drsForwardAccel = value;
     }
 
     public <T extends TSDatabase & EventDatabase> T getDatabaseType() {

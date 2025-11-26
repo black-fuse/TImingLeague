@@ -15,6 +15,10 @@ public enum PermissionTimingSystem implements Permissions {
     TAG_SET_WEIGHT,
     SCOREBOARD_SET_MAXROWS,
     SCOREBOARD_SET_INTERVAL,
+    DRS_SET_MINDELTA,
+    DRS_SET_MAXDELTA,
+    DRS_SET_DURATION,
+    DRS_SET_FORWARDACCEL,
     COLOR_SET_NAMED,
     COLOR_SET_HEX,
     GHOST;

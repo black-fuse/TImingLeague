@@ -140,6 +140,17 @@ public class CommandHeat extends BaseCommand {
         }
         player.sendMessage(collisionModeMessage);
 
+        var drsMessage = Component.text("DRS: ").color(theme.getSecondary());
+
+        if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
+            String drsValue = (heat.getDrs() != null && heat.getDrs()) ? "true" : "false";
+            drsMessage = drsMessage.append(theme.getEditButton(player, drsValue, theme).clickEvent(ClickEvent.suggestCommand("/heat set drs " + heat.getName() + " ")));
+        } else {
+            String drsValue = (heat.getDrs() != null && heat.getDrs()) ? "enabled" : "disabled";
+            drsMessage = drsMessage.append(theme.highlight(drsValue));
+        }
+        player.sendMessage(drsMessage);
+
         if (heat.getFastestLapUUID() != null) {
             Driver d = heat.getDrivers().get(heat.getFastestLapUUID());
             player.sendMessage(Text.get(player, Info.HEAT_INFO_FASTEST_LAP, "%time%", ApiUtilities.formatAsTime(d.getBestLap().get().getLapTime()), "%player%", d.getTPlayer().getName()));
@@ -368,6 +379,14 @@ public class CommandHeat extends BaseCommand {
         } catch (IllegalArgumentException e) {
             Text.send(player, Error.GENERIC);
         }
+    }
+
+    @Subcommand("set drs")
+    @CommandCompletion("@heat true|false")
+    @CommandPermission("%permissionheat_set_drs")
+    public static void onHeatSetDrs(Player player, Heat heat, Boolean drs) {
+        heat.setDrs(drs);
+        Text.send(player, Success.SAVED);
     }
 
     @Subcommand("set lonely")
