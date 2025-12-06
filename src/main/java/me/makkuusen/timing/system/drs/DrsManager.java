@@ -58,6 +58,8 @@ public class DrsManager {
             Heat heat = driver.getHeat();
             heat.getDrivers().values().forEach(Driver::updateScoreboard);
         }
+
+        player.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1.0f, 2.0f);
     }
 
     public static void deactivateDrs(Player player) {
@@ -154,6 +156,8 @@ public class DrsManager {
         if (!drsEnabledPlayers.containsKey(playerId)) {
             drsEnabledPlayers.put(playerId, new DrsData(Instant.now()));
         }
+
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
     }
 
     private static void disableDrs(Player player) {
