@@ -306,7 +306,8 @@ broadcast:
   heat_finish_title: "&a你完赛了"
 
 actionbar:
-  race: "&1第 &2&l%laps%&1/&2&l%totalLaps%&r&1 圈 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 进站"
+  race: "&1第 &2&l%laps%&1/&2&l%totalLaps%&r&1 圈 |&2&l %pos%&r&1 |&2&l %pits% 进站"
+  race_pits_completed: "&1第: &2&l%laps%&1/&2&l%totalLaps%&r&1 圈 |&2&l %pos%&r&1 | %timer%"
   race_spectator: "&2&l%name% > &1第 &2&l%laps%&1/&2&l%totalLaps%&r&1 圈 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 进站"
 
 gui:

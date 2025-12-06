@@ -174,7 +174,7 @@ public class LonelinessController implements Listener {
                 }
             }
             
-            if (shouldShow) {
+            if (shouldShow && !ghostedPlayers.contains(otherPlayer.getUniqueId())) {
                 showPlayerAndCustomBoat(player, otherPlayer);
             } else {
                 hidePlayerAndCustomBoat(player, otherPlayer);

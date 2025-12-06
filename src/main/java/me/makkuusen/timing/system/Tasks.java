@@ -140,12 +140,20 @@ public class Tasks {
             if (!driver.isFinished()) {
                 String posDisplay = getPositionOrDrsDisplay(driver);
                 String pitsDisplay = getPitsOrLapTimeDisplay(driver);
-                
-                player.sendActionBar(Text.get(player, ActionBar.RACE,
-                    "%laps%", String.valueOf(driver.getLaps().size()),
-                    "%totalLaps%", String.valueOf(driver.getHeat().getTotalLaps()),
-                    "%pos%", posDisplay,
-                    "%pits%", pitsDisplay));
+
+                if (pitsDisplay.contains("/")) {
+                    player.sendActionBar(Text.get(player, ActionBar.RACE,
+                            "%laps%", String.valueOf(driver.getLaps().size()),
+                            "%totalLaps%", String.valueOf(driver.getHeat().getTotalLaps()),
+                            "%pos%", posDisplay,
+                            "%pits%", pitsDisplay));
+                } else {
+                    player.sendActionBar(Text.get(player, ActionBar.RACE_PITS_COMPLETED,
+                            "%laps%", String.valueOf(driver.getLaps().size()),
+                            "%totalLaps%", String.valueOf(driver.getHeat().getTotalLaps()),
+                            "%pos%", posDisplay,
+                            "%timer%", pitsDisplay));
+                }
             }
         } else if (driver.getHeat().getRound() instanceof QualificationRound) {
             sendQualificationDriverActionBar(player, driver);
@@ -160,11 +168,11 @@ public class Tasks {
                 return "&s&lDRS";
             }
             else if (DrsManager.hasDrsEnabled(playerId)) {
-                return "&wDRS";
+                return "&w&lDRS";
             }
         }
         
-        return "P" + String.valueOf(driver.getPosition());
+        return "P" + driver.getPosition();
     }
     
     private static String getPitsOrLapTimeDisplay(Driver driver) {
@@ -184,7 +192,7 @@ public class Tasks {
             }
         }
         
-        return "&2&l" + pits + "&1/&2&l" + totalPits + "&r&1 Pits";
+        return "&2&l" + pits + "&1/&2&l" + totalPits;
     }
 
     private static void sendQualificationDriverActionBar(Player player, Driver driver) {

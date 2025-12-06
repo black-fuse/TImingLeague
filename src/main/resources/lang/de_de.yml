@@ -315,7 +315,8 @@ broadcast:
   heat_finish_title: '&aSie haben beendet'
 
 actionbar:
-  race: '&1Runde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Boxenstopps'
+  race: '&1Runde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 |&2&l %pits% Boxenstopps'
+  race_pits_completed: "&1Runde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 | %timer%"
   race_spectator: '&2&l%name% > &1Runde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Boxenstopps'
 
 gui:

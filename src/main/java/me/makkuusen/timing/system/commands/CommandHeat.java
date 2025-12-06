@@ -140,7 +140,7 @@ public class CommandHeat extends BaseCommand {
         }
         player.sendMessage(collisionModeMessage);
 
-        var drsMessage = Component.text("DRS: ").color(theme.getSecondary());
+        var drsMessage = Component.text("DRS: ").color(theme.getPrimary());
 
         if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
             String drsValue = (heat.getDrs() != null && heat.getDrs()) ? "true" : "false";

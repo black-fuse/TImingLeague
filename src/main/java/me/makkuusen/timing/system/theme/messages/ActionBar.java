@@ -2,6 +2,7 @@ package me.makkuusen.timing.system.theme.messages;
 
 public enum ActionBar implements Message {
     RACE,
+    RACE_PITS_COMPLETED,
     RACE_SPECTATOR;
 
     @Override

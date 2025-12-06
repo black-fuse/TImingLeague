@@ -1,6 +1,7 @@
 package me.makkuusen.timing.system.drs;
 
 import me.makkuusen.timing.system.TimingSystem;
+import me.makkuusen.timing.system.api.TimingSystemAPI;
 import me.makkuusen.timing.system.boatutils.BoatUtilsManager;
 import me.makkuusen.timing.system.boatutils.CustomBoatUtilsMode;
 import me.makkuusen.timing.system.database.EventDatabase;
@@ -10,6 +11,7 @@ import me.makkuusen.timing.system.loneliness.LonelinessController;
 import me.makkuusen.timing.system.participant.Driver;
 import me.makkuusen.timing.system.track.Track;
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
 import java.io.ByteArrayOutputStream;
@@ -49,6 +51,13 @@ public class DrsManager {
         );
         
         activeDrsPlayers.put(playerId, taskId);
+
+        var maybeDriver = TimingSystemAPI.getDriverFromRunningHeat(playerId);
+        if (maybeDriver.isPresent()) {
+            Driver driver = maybeDriver.get();
+            Heat heat = driver.getHeat();
+            heat.getDrivers().values().forEach(Driver::updateScoreboard);
+        }
     }
 
     public static void deactivateDrs(Player player) {
@@ -60,6 +69,13 @@ public class DrsManager {
         }
         
         resetToTrackSettings(player);
+
+        var maybeDriver = TimingSystemAPI.getDriverFromRunningHeat(playerId);
+        if (maybeDriver.isPresent()) {
+            Driver driver = maybeDriver.get();
+            Heat heat = driver.getHeat();
+            heat.getDrivers().values().forEach(Driver::updateScoreboard);
+        }
     }
 
     public static int getDrsDuration() {
