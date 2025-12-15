@@ -23,6 +23,9 @@ import me.makkuusen.timing.system.track.locations.TrackLocation;
 import me.makkuusen.timing.system.track.regions.TrackPolyRegion;
 import me.makkuusen.timing.system.track.regions.TrackRegion;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -69,7 +72,7 @@ public class Tasks {
                 }
             }
 
-        }, 5, 3);
+        }, 5, 1);
     }
 
     public void generateTotalTime(TimingSystem plugin) {
@@ -213,7 +216,15 @@ public class Tasks {
     private static void timeTrialTimer(Player player) {
         TimeTrial timeTrial = TimeTrialController.timeTrials.get(player.getUniqueId());
         long mapTime = timeTrial.getCurrentTime();
-        Component timer = Component.text(ApiUtilities.formatAsTime(mapTime));
+        String timerTime = ApiUtilities.formatAsTime(mapTime);
+        int decimalIndex = timerTime.indexOf('.');
+        String timerTime1;
+        if (decimalIndex != -1 && decimalIndex + 3 <= timerTime.length()) {
+            timerTime1 = timerTime.substring(0, decimalIndex + 3);
+        } else {
+            timerTime1 = timerTime;
+        }
+        Component timer = Component.text(timerTime1);
         Theme theme = TSDatabase.getPlayer(player).getTheme();
 
         int latestCheckpoint = timeTrial.getLatestCheckpoint();
