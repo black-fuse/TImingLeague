@@ -98,6 +98,11 @@ public class Driver extends Participant implements Comparable<Driver> {
         newLap();
     }
 
+    public void passLap(org.bukkit.Location from, org.bukkit.Location to, me.makkuusen.timing.system.track.regions.TrackRegion region) {
+        finishLap(from, to, region);
+        newLap();
+    }
+
     public void passResetLap() {
         finishLap();
     }
@@ -147,14 +152,46 @@ public class Driver extends Participant implements Comparable<Driver> {
             if (heat.getRound() instanceof QualificationRound) {
                 EventAnnouncements.broadcastQualifyingLap(heat, this, getCurrentLap(), oldBest);
             } else {
-                EventAnnouncements.broadcastLapTime(heat, this, getCurrentLap().getLapTime());
+                EventAnnouncements.broadcastLapTime(heat, this, getCurrentLap().getPreciseLapTime());
             }
         }
 
         DriverFinishLapEvent e = new DriverFinishLapEvent(this, getCurrentLap(), isFastestLap);
         e.callEvent();
 
-        ApiUtilities.msgConsole(getTPlayer().getName() + " finished lap in: " + ApiUtilities.formatAsTime(getCurrentLap().getLapTime()));
+        ApiUtilities.msgConsole(getTPlayer().getName() + " finished lap in: " + ApiUtilities.formatAsTime(getCurrentLap().getPreciseLapTime()));
+    }
+
+    private void finishLap(org.bukkit.Location from, org.bukkit.Location to, me.makkuusen.timing.system.track.regions.TrackRegion region) {
+        var oldBest = getBestLap();
+        
+        // Calculate precise timing by finding the exact point where player enters the finish region
+        java.time.Instant preciseEndTime = me.makkuusen.timing.system.TimingSystem.currentTime;
+        if (from != null && to != null && region != null) {
+            double proportion = calculateRegionEntryProportion(from, to, region);
+            long tickDurationNanos = 50_000_000L; // 50ms in nanoseconds (1 tick = 50ms)
+            long adjustmentNanos = (long) ((1.0 - proportion) * tickDurationNanos);
+            preciseEndTime = preciseEndTime.minusNanos(adjustmentNanos);
+        }
+        
+        getCurrentLap().setLapEnd(preciseEndTime);
+        boolean isFastestLap = heat.getFastestLapUUID() == null || getCurrentLap().getLapTime() < heat.getDrivers().get(heat.getFastestLapUUID()).getBestLap().get().getLapTime() || getCurrentLap().equals(heat.getDrivers().get(heat.getFastestLapUUID()).getBestLap().get());
+
+        if (isFastestLap) {
+            EventAnnouncements.broadcastFastestLap(heat, this, getCurrentLap(), oldBest);
+            heat.setFastestLapUUID(getTPlayer().getUniqueId());
+        } else {
+            if (heat.getRound() instanceof QualificationRound) {
+                EventAnnouncements.broadcastQualifyingLap(heat, this, getCurrentLap(), oldBest);
+            } else {
+                EventAnnouncements.broadcastLapTime(heat, this, getCurrentLap().getPreciseLapTime());
+            }
+        }
+
+        DriverFinishLapEvent e = new DriverFinishLapEvent(this, getCurrentLap(), isFastestLap);
+        e.callEvent();
+
+        ApiUtilities.msgConsole(getTPlayer().getName() + " finished lap in: " + ApiUtilities.formatAsTime(getCurrentLap().getPreciseLapTime()));
     }
 
     public void resetQualyLap() {
@@ -416,5 +453,54 @@ public class Driver extends Participant implements Comparable<Driver> {
         Instant last = lap.getCheckpointTime(lap.getLatestCheckpoint());
         Instant oLast = oLap.getCheckpointTime(lap.getLatestCheckpoint());
         return last.compareTo(oLast);
+    }
+
+    /**
+     * Calculates the proportion of the movement vector where the player enters the region
+     * using binary search with 15 iterations for precision.
+     * 
+     * @param from The starting location of the movement
+     * @param to The ending location of the movement  
+     * @param region The region being entered
+     * @return A value between 0.0 and 1.0 representing how far through the movement the entry occurred
+     */
+    private static double calculateRegionEntryProportion(org.bukkit.Location from, org.bukkit.Location to, me.makkuusen.timing.system.track.regions.TrackRegion region) {
+        double low = 0.0;
+        double high = 1.0;
+        
+        // Binary search with 15 iterations for precision
+        for (int i = 0; i < 15; i++) {
+            double mid = (low + high) / 2.0;
+            
+            // Calculate the interpolated position at the midpoint
+            org.bukkit.Location midLocation = interpolateLocation(from, to, mid);
+            
+            if (region.contains(midLocation)) {
+                // If the midpoint is inside the region, the entry point is earlier in the movement
+                high = mid;
+            } else {
+                // If the midpoint is outside the region, the entry point is later in the movement
+                low = mid;
+            }
+        }
+        
+        // Return the final proportion (closer to the actual entry point)
+        return (low + high) / 2.0;
+    }
+    
+    /**
+     * Interpolates between two locations based on a proportion value.
+     * 
+     * @param from The starting location
+     * @param to The ending location
+     * @param proportion A value between 0.0 and 1.0
+     * @return The interpolated location
+     */
+    private static org.bukkit.Location interpolateLocation(org.bukkit.Location from, org.bukkit.Location to, double proportion) {
+        double x = from.getX() + (to.getX() - from.getX()) * proportion;
+        double y = from.getY() + (to.getY() - from.getY()) * proportion;
+        double z = from.getZ() + (to.getZ() - from.getZ()) * proportion;
+        
+        return new org.bukkit.Location(from.getWorld(), x, y, z);
     }
 }

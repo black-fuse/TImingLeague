@@ -73,10 +73,10 @@ public class TimeTrialFinish implements Comparator<TimeTrialFinish> {
                 if (other.getDate() > TrackDatabase.getTrackById(getTrack()).get().getDateChanged()) {
                     var otherCheckpoint = other.getCheckpointTime(latestCheckpoint);
                     var currentCheckpoint = getCheckpointTime(latestCheckpoint);
-                    if (ApiUtilities.getRoundedToTick(otherCheckpoint) < ApiUtilities.getRoundedToTick(currentCheckpoint)) {
+                    if (otherCheckpoint < currentCheckpoint) {
                         return Component.text(" +" + ApiUtilities.formatAsPersonalGap(currentCheckpoint - otherCheckpoint)).color(theme.getError());
-                    } else if (ApiUtilities.getRoundedToTick(otherCheckpoint) == ApiUtilities.getRoundedToTick(currentCheckpoint)) {
-                        return Component.text(" -" + ApiUtilities.formatAsPersonalGap(currentCheckpoint - otherCheckpoint)).color(theme.getWarning());
+                    } else if (otherCheckpoint == currentCheckpoint) {
+                        return Component.text(" =" + ApiUtilities.formatAsPersonalGap(currentCheckpoint - otherCheckpoint)).color(theme.getWarning());
                     }else {
                         return Component.text(" -" + ApiUtilities.formatAsPersonalGap(otherCheckpoint - currentCheckpoint)).color(theme.getSuccess());
                     }
