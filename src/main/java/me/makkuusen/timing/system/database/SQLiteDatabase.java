@@ -31,7 +31,7 @@ public class SQLiteDatabase extends MySQLDatabase {
         try {
             var row = DB.getFirstRow("SELECT * FROM `ts_version` ORDER BY `date` DESC;");
 
-            int databaseVersion = 9;
+            int databaseVersion = 13;
             if (row == null) { // First startup
                 DB.executeInsert("INSERT INTO `ts_version` (`version`, `date`) VALUES(?, ?);",
                         databaseVersion,
@@ -93,6 +93,22 @@ public class SQLiteDatabase extends MySQLDatabase {
 
         if (previousVersion < 9) {
             Version9.updateSQLite();
+        }
+
+        if (previousVersion < 10) {
+            Version10.updateSQLite();
+        }
+
+        if (previousVersion < 11) {
+            Version11.updateSQLite();
+        }
+
+        if (previousVersion < 12) {
+            Version12.updateSQLite();
+        }
+
+        if (previousVersion < 13) {
+            Version13.updateSQLite();
         }
     }
 
@@ -214,6 +230,11 @@ public class SQLiteDatabase extends MySQLDatabase {
                           `lonely` INTEGER DEFAULT NULL,
                           `canReset` INTEGER DEFAULT NULL,
                           `lapReset` INTEGER DEFAULT NULL,
+                          `ghostingDelta` INTEGER DEFAULT NULL,
+                          `boatSwitching` INTEGER DEFAULT NULL,
+                          `collisionMode` TEXT DEFAULT NULL,
+                          `drs` INTEGER NOT NULL DEFAULT 0,
+                          `drsDowntime` INTEGER DEFAULT NULL,
                           `isRemoved` INTEGER NOT NULL DEFAULT '0'
                         );""");
 
@@ -307,6 +328,57 @@ public class SQLiteDatabase extends MySQLDatabase {
                           `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                           `trackId` INTEGER NOT NULL,
                           `option` INTEGER NOT NULL
+                        );""");
+
+            DB.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS `ts_teams` (
+                          `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                          `name` TEXT NOT NULL UNIQUE,
+                          `creator` TEXT NOT NULL,
+                          `dateCreated` INTEGER NOT NULL,
+                          `isRemoved` INTEGER NOT NULL DEFAULT 0
+                        );""");
+
+            DB.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS `ts_team_players` (
+                          `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                          `teamId` INTEGER NOT NULL,
+                          `playerUuid` TEXT NOT NULL,
+                          `position` INTEGER NOT NULL,
+                          `dateAdded` INTEGER NOT NULL,
+                          FOREIGN KEY (teamId) REFERENCES ts_teams(id),
+                          UNIQUE(teamId, playerUuid),
+                          UNIQUE(teamId, position)
+                        );""");
+
+            DB.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS `ts_team_heat_entries` (
+                          `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                          `heatId` INTEGER NOT NULL,
+                          `teamId` INTEGER NOT NULL,
+                          `activeDriverUUID` TEXT DEFAULT NULL,
+                          `currentLap` INTEGER NOT NULL DEFAULT 0,
+                          `currentCheckpoint` INTEGER NOT NULL DEFAULT 0,
+                          `startTime` INTEGER DEFAULT NULL,
+                          `endTime` INTEGER DEFAULT NULL,
+                          `position` INTEGER DEFAULT NULL,
+                          `startPosition` INTEGER NOT NULL,
+                          `pits` INTEGER NOT NULL DEFAULT 0,
+                          `finished` INTEGER NOT NULL DEFAULT 0,
+                          FOREIGN KEY (heatId) REFERENCES ts_heats(id) ON DELETE CASCADE,
+                          FOREIGN KEY (teamId) REFERENCES ts_teams(id) ON DELETE CASCADE
+                        );""");
+
+            DB.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS `ts_team_laps` (
+                          `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                          `teamHeatEntryId` INTEGER NOT NULL,
+                          `lapNumber` INTEGER NOT NULL,
+                          `lapStart` INTEGER NOT NULL,
+                          `lapEnd` INTEGER DEFAULT NULL,
+                          `driverUUID` TEXT NOT NULL,
+                          `pitted` INTEGER NOT NULL DEFAULT 0,
+                          FOREIGN KEY (teamHeatEntryId) REFERENCES ts_team_heat_entries(id) ON DELETE CASCADE
                         );""");
 
             return true;

@@ -554,15 +554,17 @@ public class TSListener implements Listener {
 
         for (TrackRegion r : track.getTrackRegions().getRegions(TrackRegion.RegionType.RESET)) {
             if (r.contains(player.getLocation())) {
-                if (!track.getTrackOptions().hasOption(TrackOption.RESET_TO_LATEST_CHECKPOINT)) {
+                if (!track.getTrackOptions().hasOption(TrackOption.RESET_TO_LATEST_CHECKPOINT) && !track.getTrackOptions().hasOption(TrackOption.RESET_TO_RESET_REGION_SPAWN)) {
                     timeTrial.playerResetMap();
+                } else if (track.getTrackOptions().hasOption(TrackOption.RESET_TO_RESET_REGION_SPAWN)) {
+                    ApiUtilities.teleportPlayerAndSpawnBoat(player, track, r.getSpawnLocation());
                 } else {
                     var maybeRegion = track.getTrackRegions().getRegion(TrackRegion.RegionType.CHECKPOINT, timeTrial.getLatestCheckpoint());
                     if (maybeRegion.isEmpty()) {
                         timeTrial.playerResetMap();
                         return;
                     }
-                    ApiUtilities.teleportPlayerAndSpawnBoat(player, track, maybeRegion.get().getSpawnLocation(), PlayerTeleportEvent.TeleportCause.UNKNOWN);
+                    ApiUtilities.teleportPlayerAndSpawnBoat(player, track, maybeRegion.get().getSpawnLocation());
                 }
                 return;
             }
@@ -641,6 +643,15 @@ public class TSListener implements Listener {
                 if (driver.getState() == DriverState.STARTING) {
                     driver.start();
                     heat.updatePositions();
+                    
+                    if (heat.isBoatSwitchingEnabled()) {
+                        var maybeTeamEntry = heat.getTeamEntryByPlayer(player.getUniqueId());
+                        if (maybeTeamEntry.isPresent()) {
+                            var teamEntry = maybeTeamEntry.get();
+                            teamEntry.updateRaceProgress(1, 0);
+                        }
+                    }
+                    
                     ApiUtilities.msgConsole("Starting : " + player.getName() + " in " + heat.getName());
                     if (heat.getGhostingDelta() != null) {
                         checkDeltas(driver);
@@ -664,6 +675,15 @@ public class TSListener implements Listener {
                     }
                     heat.passLap(driver);
                     heat.updatePositions();
+                    
+                    if (heat.isBoatSwitchingEnabled()) {
+                        var maybeTeamEntry = heat.getTeamEntryByPlayer(player.getUniqueId());
+                        if (maybeTeamEntry.isPresent()) {
+                            var teamEntry = maybeTeamEntry.get();
+                            teamEntry.updateRaceProgress(driver.getLaps().size(), 0);
+                        }
+                    }
+                    
                     if (heat.getGhostingDelta() != null) {
                         checkDeltas(driver);
                     }
@@ -685,6 +705,15 @@ public class TSListener implements Listener {
                     }
                     heat.passLap(driver);
                     heat.updatePositions();
+                    
+                    if (heat.isBoatSwitchingEnabled()) {
+                        var maybeTeamEntry = heat.getTeamEntryByPlayer(player.getUniqueId());
+                        if (maybeTeamEntry.isPresent()) {
+                            var teamEntry = maybeTeamEntry.get();
+                            teamEntry.updateRaceProgress(driver.getLaps().size(), 0);
+                        }
+                    }
+                    
                     return;
                 }
             }
@@ -713,10 +742,14 @@ public class TSListener implements Listener {
             // Check for reset
             for (TrackRegion r : track.getTrackRegions().getRegions(TrackRegion.RegionType.RESET)) {
                 if (r.contains(player.getLocation())) {
-                    var maybeRegion = track.getTrackRegions().getRegion(TrackRegion.RegionType.CHECKPOINT, lap.getLatestCheckpoint());
+                    if (track.getTrackOptions().hasOption(TrackOption.RESET_TO_RESET_REGION_SPAWN)) {
+                        ApiUtilities.teleportPlayerAndSpawnBoat(player, track, r.getSpawnLocation());
+                        return;
+                    }
+                    // var maybeRegion = track.getTrackRegions().getRegion(TrackRegion.RegionType.CHECKPOINT, lap.getLatestCheckpoint());
 
-                    TrackRegion region;
-                    region = maybeRegion.orElseGet(() -> track.getTrackRegions().getStart().get());
+                    // TrackRegion region;
+                    // region = maybeRegion.orElseGet(() -> track.getTrackRegions().getStart().get());
                     performInHeatReset(driver);
                     return;
                 }
@@ -743,6 +776,14 @@ public class TSListener implements Listener {
             if (maybeCheckpoint.isPresent() && maybeCheckpoint.get().getRegionIndex() == lap.getNextCheckpoint()) {
                 lap.passNextCheckpoint(TimingSystem.currentTime);
                 heat.updatePositions();
+
+                if (heat.isBoatSwitchingEnabled()) {
+                    var maybeTeamEntry = heat.getTeamEntryByPlayer(player.getUniqueId());
+                    if (maybeTeamEntry.isPresent()) {
+                        var teamEntry = maybeTeamEntry.get();
+                        teamEntry.updateRaceProgress(driver.getLaps().size(), maybeCheckpoint.get().getRegionIndex());
+                    }
+                }
 
                 if (heat.getGhostingDelta() != null) {
                     checkDeltas(driver);

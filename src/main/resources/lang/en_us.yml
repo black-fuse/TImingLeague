@@ -111,6 +111,17 @@ error:
   failed_to_save_custom_boatutils_mode: "&eFailed to save custom BoatUtils mode."
   failed_to_delete_custom_boatutils_mode: "&eFailed to delete custom BoatUtils mode."
   wrong_or_missing_boatutils: "&eYou need a later version of boat utils for this feature."
+  team_name_taken: "&eTeam name '%name%' is already taken."
+  team_not_found: "&eTeam not found."
+  failed_to_create_team: "&eFailed to create team."
+  failed_to_delete_team: "&eFailed to delete team '%name%'."
+  player_already_in_team: "&ePlayer %player% is already in team %team%."
+  player_not_in_team: "&ePlayer %player% is not in team %team%."
+  driver_swap_not_in_pit: "&eYou must be in a pit region to swap drivers."
+  driver_swap_driver_online: "&eCannot replace online driver. Use right-click in pit region instead."
+  driver_swap_not_same_team: "&eYou are not on the same team as that driver."
+  driver_swap_not_in_active_heat: "&eYou are not in an active team heat."
+  driver_swap_boat_switching_disabled: "&eDriver swapping is only available in boat switching mode."
 
 warning:
   dangerous_command: "&wThis command is dangerous, Type \"%command%\" to use it anyways"
@@ -217,6 +228,14 @@ success:
   custom_boatutils_mode_block_slip_cleared: "&sBlock slipperiness cleared for blocks: %blocks%."
   custom_boatutils_mode_per_block_added: "&sPer-block setting added for blocks: %blocks%."
   custom_boatutils_mode_per_block_cleared: "&sPer-block settings cleared for blocks: %blocks%."
+  team_created: "&sTeam '%name%' has been created."
+  team_deleted: "&sTeam '%name%' has been deleted."
+  player_added_to_team: "&sPlayer %player% has been added to team %team%."
+  player_removed_from_team: "&sPlayer %player% has been removed from team %team%."
+  driver_swap_success_new: "&sYou are now the active driver for your team!"
+  driver_swap_success_old: "&s%player% has taken over as the active driver."
+  driver_swap_offline_success: "&sYou are now the active driver! Spawned at checkpoint %checkpoint%."
+  driver_swap_offline_success_start: "&sYou are now the active driver! Spawned at start line."
 
 info:
   page_current_of_max: "&1page &l&2%current% &r&1of &l&2%max%"
@@ -247,6 +266,7 @@ info:
   heat_info_laps: "&1Laps: "
   heat_info_pits: "&1Pits: "
   heat_info_max_drivers: "&1Max drivers: "
+  heat_info_collision_mode: "&1Collision mode: "
   heat_info_drivers: "&1Drivers: "
   heat_info_fastest_lap: "&1Fastest lap: &2%time% &1by &2%player%"
   round_info_heats: "&1Heats:"
@@ -291,6 +311,13 @@ info:
   bume_all_settings_default: "&2All settings are at vanilla default values"
   streaker_message_indiv: "&1• &2%name%"
   streaker_message_title: "&1--- Streakers for &2%heatname% &1---"
+  team_info_title: "&1--- &2Team: %name% (%id%) &1---"
+  team_info_creator: "&1Creator: &2%creator%"
+  team_info_date_created: "&1Created: &2%date%"
+  team_info_player_count: "&1Players: &2%count%"
+  team_info_players: "&1Members: &2%players%"
+  team_list_title: "&1--- &2Teams &1---"
+  team_list_empty: "&1No teams found."
 hover:
   click_to_add: "Click to add"
   click_to_delete: "Click to delete"
@@ -341,7 +368,8 @@ broadcast:
   heat_finish_title: "&aYou finished"
 
 actionbar:
-  race: "&1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Pits"
+  race: '&1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 |&2&l %pits% Pits'
+  race_pits_completed: "&1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 | %timer%"
   race_spectator: "&2&l%name% > &1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Pits"
 
 gui:

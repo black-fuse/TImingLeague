@@ -103,6 +103,38 @@ public class CommandTimingSystem extends BaseCommand {
         Text.send(sender, Success.SAVED);
     }
 
+    @Subcommand("drs mindelta")
+    @CommandCompletion("<value in ms>")
+    @CommandPermission("%permissiontimingsystem_drs_set_mindelta")
+    public static void onDrsMinDeltaChange(CommandSender sender, int value) {
+        TimingSystem.configuration.setDrsMinDelta(value);
+        Text.send(sender, Success.SAVED);
+    }
+
+    @Subcommand("drs maxdelta")
+    @CommandCompletion("<value in ms>")
+    @CommandPermission("%permissiontimingsystem_drs_set_maxdelta")
+    public static void onDrsMaxDeltaChange(CommandSender sender, int value) {
+        TimingSystem.configuration.setDrsMaxDelta(value);
+        Text.send(sender, Success.SAVED);
+    }
+
+    @Subcommand("drs duration")
+    @CommandCompletion("<value in ms>")
+    @CommandPermission("%permissiontimingsystem_drs_set_duration")
+    public static void onDrsDurationChange(CommandSender sender, int value) {
+        TimingSystem.configuration.setDrsDuration(value);
+        Text.send(sender, Success.SAVED);
+    }
+
+    @Subcommand("drs forwardaccel")
+    @CommandCompletion("<value>")
+    @CommandPermission("%permissiontimingsystem_drs_set_forwardaccel")
+    public static void onDrsForwardAccelChange(CommandSender sender, double value) {
+        TimingSystem.configuration.setDrsForwardAccel(value);
+        Text.send(sender, Success.SAVED);
+    }
+
     @Subcommand("shortname")
     @CommandCompletion("<shortname> @players")
     @CommandPermission("%permissiontimingsystem_shortname_others")

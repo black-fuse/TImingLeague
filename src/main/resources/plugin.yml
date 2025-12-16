@@ -79,6 +79,7 @@ permissions:
          timingsystem.heat.list: true
          timingsystem.heat.results: true
          timingsystem.heat.quit: true
+         timingsystem.heat.driver.swap: true
 
    timingsystem.packs.trackbuilder:
       description: Player has the tools to build a track
@@ -195,4 +196,8 @@ permissions:
          timingsystem.packs.eventadmin: true
          timingsystem.packs.trackadmin: true
          timingsystem.settings.override: true
+
+   timingsystem.heat.driver.swap:
+      description: Allows players to swap drivers during team-based heats with boat switching enabled
+      default: true
 

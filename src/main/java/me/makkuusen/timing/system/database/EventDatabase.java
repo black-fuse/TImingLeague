@@ -76,9 +76,29 @@ public interface EventDatabase {
 
     void heatSet(long heatId, String column, Long value);
 
+    void heatSet(long heatId, String column, Boolean value);
+
     void driverSet(long driverId, String column, Integer value);
 
     void driverSet(long driverId, String column, Long value);
+
+    DbRow teamHeatEntryNew(int heatId, int teamId, int startPosition);
+
+    List<DbRow> selectTeamHeatEntries(int heatId) throws SQLException;
+
+    void teamHeatEntrySet(long teamHeatEntryId, String column, String value);
+
+    void teamHeatEntrySet(long teamHeatEntryId, String column, Integer value);
+
+    void teamHeatEntrySet(long teamHeatEntryId, String column, Long value);
+
+    void teamHeatEntrySet(long teamHeatEntryId, String column, Boolean value);
+
+    void teamHeatEntryRemove(long teamHeatEntryId);
+
+    void createTeamLap(int teamHeatEntryId, int lapNumber, long lapStart, Long lapEnd, UUID driverUUID, boolean pitted);
+
+    List<DbRow> selectTeamLaps(int teamHeatEntryId) throws SQLException;
 
 
     static Set<Event> getEvents() {

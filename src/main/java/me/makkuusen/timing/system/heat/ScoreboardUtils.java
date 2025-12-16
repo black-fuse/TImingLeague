@@ -1,6 +1,7 @@
 package me.makkuusen.timing.system.heat;
 
 import me.makkuusen.timing.system.ApiUtilities;
+import me.makkuusen.timing.system.drs.DrsManager;
 import me.makkuusen.timing.system.participant.Driver;
 import me.makkuusen.timing.system.theme.Theme;
 import me.makkuusen.timing.system.tplayer.TPlayer;
@@ -10,9 +11,11 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
+import java.util.UUID;
+
 public class ScoreboardUtils {
     public static Component getDriverLine(Driver driver, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text("           ")).append(getTeamIcon(driver)).append(paddName(driver, compact)).build();
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(getDrsIndicatorOrSpacing(driver)).append(getTeamIcon(driver)).append(paddName(driver, compact)).build();
     }
 
     public static Component getDriverLineQualyTime(long laptime, Driver driver, int pos, boolean compact, Theme theme) {
@@ -20,23 +23,23 @@ public class ScoreboardUtils {
     }
 
     public static Component getDriverLineQualyGap(long timeDiff, Driver driver, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" +").color(NamedTextColor.GREEN)).append(paddGap(ApiUtilities.formatAsQualificationGap(timeDiff)).color(NamedTextColor.GREEN)).append(getTeamIcon(driver)).append(paddName(driver, compact)).build();
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" +").color(NamedTextColor.GREEN)).append(paddGapOrDrsIndicator(ApiUtilities.formatAsQualificationGap(timeDiff), driver).color(NamedTextColor.GREEN)).append(getTeamIcon(driver)).append(paddName(driver, compact)).build();
     }
 
-    public static Component getDriverLineEqualQualyGap(long timeDiff, Driver driver, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" =").color(NamedTextColor.YELLOW)).append(paddGap(ApiUtilities.formatAsQualificationGap(timeDiff)).color(NamedTextColor.YELLOW)).append(getTeamIcon(driver)).append(paddName(driver, compact)).build();
+    public static Component getDriverLineEqualQualyGap(Driver driver, int pos, boolean compact, Theme theme) {
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" =").color(NamedTextColor.YELLOW)).append(paddGapOrDrsIndicator(ApiUtilities.formatAsQualificationGap(0), driver).color(NamedTextColor.YELLOW)).append(getTeamIcon(driver)).append(paddName(driver, compact)).build();
     }
 
     public static Component getDriverLineNegativeQualyGap(long timeDiff, Driver driver, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" -").color(NamedTextColor.RED)).append(paddGap(ApiUtilities.formatAsQualificationGap(timeDiff)).color(NamedTextColor.RED)).append(getTeamIcon(driver)).append(paddName(driver, compact)).build();
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" -").color(NamedTextColor.RED)).append(paddGapOrDrsIndicator(ApiUtilities.formatAsQualificationGap(timeDiff), driver).color(NamedTextColor.RED)).append(getTeamIcon(driver)).append(paddName(driver, compact)).build();
     }
 
     public static Component getDriverLineRace(Driver driver, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text("           ")).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(0).color(TextColor.color(0xFFFFFF))).build();
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(getDrsIndicatorOrSpacing(driver)).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(0).color(TextColor.color(0xFFFFFF))).build();
     }
 
     public static Component getDriverLineRace(Driver driver, int pits, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text("           ")).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(pits).color(getPitColour(driver, pits))).build();
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(getDrsIndicatorOrSpacing(driver)).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(pits).color(getPitColour(driver, pits))).build();
     }
 
     public static Component getDriverLineRaceInPit(Driver driver, int pits, int pos, boolean compact, Theme theme) {
@@ -56,15 +59,15 @@ public class ScoreboardUtils {
     }
 
     public static Component getDriverLineRaceGap(long gap, Driver driver, int pits, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" +").color(NamedTextColor.GREEN)).append(paddGap(ApiUtilities.formatAsRacingGap(gap)).color(NamedTextColor.GREEN)).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(pits).color(getPitColour(driver, pits))).build();
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" +").color(NamedTextColor.GREEN)).append(paddGapOrDrsIndicator(ApiUtilities.formatAsRacingGap(gap), driver).color(NamedTextColor.GREEN)).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(pits).color(getPitColour(driver, pits))).build();
     }
 
     public static Component getDriverLineNegativeRaceGap(long gap, Driver driver, int pits, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" -").color(NamedTextColor.RED)).append(paddGap(ApiUtilities.formatAsRacingGap(gap)).color(NamedTextColor.RED)).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(pits).color(getPitColour(driver, pits))).build();
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" -").color(NamedTextColor.RED)).append(paddGapOrDrsIndicator(ApiUtilities.formatAsRacingGap(gap), driver).color(NamedTextColor.RED)).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(pits).color(getPitColour(driver, pits))).build();
     }
 
     public static Component getDriverLineEqualRaceGap(Driver driver, int pits, int pos, boolean compact, Theme theme) {
-        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" =0.00").color(NamedTextColor.YELLOW)).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(pits).color(getPitColour(driver, pits))).build();
+        return Component.text().append(paddPos(pos, driver)).append((compact ? Component.empty() : getDivider(theme))).append(Component.text(" =").color(NamedTextColor.YELLOW)).append(paddGapOrDrsIndicator(ApiUtilities.formatAsRacingGap(0), driver).color(NamedTextColor.YELLOW)).append(getTeamIcon(driver)).append(paddName(driver, compact)).append(getPits(compact, theme)).append(Component.text(pits).color(getPitColour(driver, pits))).build();
     }
 
     private static Component getDivider(Theme theme) {
@@ -72,6 +75,29 @@ public class ScoreboardUtils {
     }
 
     public static Component paddName(Driver driver, boolean compact) {
+        // If boat switching is enabled, show team name instead of player name
+        if (driver.getHeat().isBoatSwitchingEnabled()) {
+            var maybeTeamEntry = driver.getHeat().getTeamEntryByPlayer(driver.getTPlayer().getUniqueId());
+            if (maybeTeamEntry.isPresent()) {
+                var teamEntry = maybeTeamEntry.get();
+                String teamName = teamEntry.getTeam() != null ? teamEntry.getTeam().getDisplayName() : driver.getTPlayer().getName();
+                
+                TextComponent.Builder c = Component.text().content("");
+                if (compact) {
+                    String shortName = teamName.length() > 4 ? teamName.substring(0, 4) : teamName;
+                    c.append(Component.text(shortName));
+                    int spaces = 4 - shortName.length();
+                    c.append(Component.text(" ".repeat(Math.max(0, spaces))));
+                } else {
+                    c.append(Component.text(teamName));
+                    int spaces = 16 - teamName.length();
+                    c.append(Component.text(" ".repeat(Math.max(0, spaces))));
+                }
+                return c.build();
+            }
+        }
+        
+        // Default: show player name
         return paddName(driver.getTPlayer(), compact);
     }
 
@@ -92,6 +118,7 @@ public class ScoreboardUtils {
     }
 
     public static Component paddPos(int pos, Driver driver) {
+
         TextColor posColour;
 
         switch(pos) {
@@ -102,6 +129,7 @@ public class ScoreboardUtils {
         }
 
         TextComponent.Builder b = Component.text().content(String.valueOf(pos)).color(posColour);
+
         boolean hasFastestLap = driver.getHeat().getFastestLapUUID() == driver.getTPlayer().getUniqueId();
 
         if(hasFastestLap) b.decorate(TextDecoration.UNDERLINED);
@@ -114,7 +142,25 @@ public class ScoreboardUtils {
         return b.build();
     }
 
-    public static Component paddGap(String gap) {
+//    public static Component paddGap(String gap) {
+//        if (gap.length() == 5) {
+//            return Component.text(gap + "  ");
+//        }
+//        return Component.text(gap);
+//    }
+    
+    public static Component paddGapOrDrsIndicator(String gap, Driver driver) {
+        if (driver.getHeat().getDrs() != null && driver.getHeat().getDrs()) {
+            UUID playerId = driver.getTPlayer().getUniqueId();
+
+            if (DrsManager.hasDrsActive(playerId)) {
+                return Component.text("DRS").decorate(TextDecoration.BOLD).color(NamedTextColor.GREEN);
+            }
+            else if (DrsManager.hasDrsEnabled(playerId)) {
+                return Component.text("DRS").decorate(TextDecoration.BOLD).color(NamedTextColor.WHITE);
+            }
+        }
+
         if (gap.length() == 5) {
             return Component.text(gap + "  ");
         }
@@ -122,6 +168,7 @@ public class ScoreboardUtils {
     }
 
     public static Component paddTime(String time) {
+
         if (time.length() == 6) {
             return Component.text(time + "  ");
         }
@@ -159,6 +206,20 @@ public class ScoreboardUtils {
             return Component.text(" ");
         }
         return Component.text("Pits: ").color(getPrimaryColor(theme));
+    }
+
+    private static Component getDrsIndicatorOrSpacing(Driver driver) {
+        if (driver.getHeat().getDrs() != null && driver.getHeat().getDrs()) {
+            UUID playerId = driver.getTPlayer().getUniqueId();
+
+            if (DrsManager.hasDrsActive(playerId)) {
+                return Component.text("    DRS    ").decorate(TextDecoration.BOLD).color(NamedTextColor.GREEN);
+            }
+            else if (DrsManager.hasDrsEnabled(playerId)) {
+                return Component.text("    DRS    ").decorate(TextDecoration.BOLD).color(NamedTextColor.WHITE);
+            }
+        }
+        return Component.text("           ");
     }
 
 }

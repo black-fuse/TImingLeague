@@ -12,6 +12,8 @@ import me.makkuusen.timing.system.database.*;
 import me.makkuusen.timing.system.gui.GUIListener;
 import me.makkuusen.timing.system.gui.GuiCommon;
 import me.makkuusen.timing.system.heat.Heat;
+import me.makkuusen.timing.system.listeners.DrsListener;
+import me.makkuusen.timing.system.listeners.DriverSwapListener;
 import me.makkuusen.timing.system.listeners.GSitListener;
 import me.makkuusen.timing.system.listeners.ReadyCheckListener;
 import me.makkuusen.timing.system.loneliness.LonelinessController;
@@ -51,6 +53,8 @@ public class TimingSystem extends JavaPlugin {
     private static TrackDatabase trackDatabase;
     @Getter
     private static LogDatabase logDatabase;
+    @Getter
+    private static TeamDatabase teamDatabase;
 
     public static TimingSystemConfiguration configuration;
     public static boolean enableLeaderboards = true;
@@ -86,6 +90,8 @@ public class TimingSystem extends JavaPlugin {
         pm.registerEvents(new TimeTrialListener(), plugin);
         pm.registerEvents(new LonelinessController(plugin), plugin);
         pm.registerEvents(new ReadyCheckListener(), plugin);
+        pm.registerEvents(new DriverSwapListener(), plugin);
+        pm.registerEvents(new DrsListener(), plugin);
 
         if (pm.isPluginEnabled("GSit")) {
             pm.registerEvents(new GSitListener(), plugin);
@@ -110,6 +116,7 @@ public class TimingSystem extends JavaPlugin {
         PermissionRound.init(cr);
         PermissionHeat.init(cr);
         PermissionBoatUtilsMode.init(cr);
+        PermissionTeam.init(cr);
 
         ContextResolvers.loadCommandContextsAndCompletions(manager);
 
@@ -130,12 +137,14 @@ public class TimingSystem extends JavaPlugin {
         manager.registerCommand(new CommandGhost());
         manager.registerCommand(new CommandUnghost());
         manager.registerCommand(new CommandBoatUtilsModeEdit());
+        manager.registerCommand(new CommandTeam());
         taskChainFactory = BukkitTaskChainFactory.create(this);
 
         database = configuration.getDatabaseType();
         eventDatabase = configuration.getDatabaseType();
         trackDatabase = configuration.getDatabaseType();
         logDatabase = configuration.getDatabaseType();
+        teamDatabase = configuration.getDatabaseType();
 
         if (!database.initialize()) return;
         database.update();
@@ -143,11 +152,15 @@ public class TimingSystem extends JavaPlugin {
         TrackDatabase.loadTrackFinishesAsync();
         EventDatabase.initSynchronize();
         //LogDatabase.synchronize();
+        
+        // Initialize team system with lightweight cache structures (no bulk loading)
+        me.makkuusen.timing.system.team.TeamManager.initializeTeams();
 
         var tasks = new Tasks();
         tasks.startPlayerTimer(plugin);
         tasks.startParticleSpawner(plugin);
         tasks.generateTotalTime(plugin);
+        tasks.startDrsCleanup(plugin);
 
 
         // Small check to make sure that PlaceholderAPI is installed
@@ -207,6 +220,10 @@ public class TimingSystem extends JavaPlugin {
     @Override
     public void onDisable() {
         EventDatabase.getHeats().stream().filter(Heat::isActive).forEach(Heat::onShutdown);
+        
+        // Cleanup team system cache
+        me.makkuusen.timing.system.team.TeamManager.unload();
+        
         logger.info("Version " + getPluginMeta().getVersion() + " disabled.");
         scoreboardLibrary.close();
         TSListener.plugin = null;

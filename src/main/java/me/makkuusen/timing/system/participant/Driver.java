@@ -119,7 +119,26 @@ public class Driver extends Participant implements Comparable<Driver> {
     private void finishLap() {
         var oldBest = getBestLap();
         getCurrentLap().setLapEnd(TimingSystem.currentTime);
-        boolean isFastestLap = heat.getFastestLapUUID() == null || getCurrentLap().getLapTime() < heat.getDrivers().get(heat.getFastestLapUUID()).getBestLap().get().getLapTime() || getCurrentLap().equals(heat.getDrivers().get(heat.getFastestLapUUID()).getBestLap().get());
+        
+        // Check if fastest lap driver still exists in heat (may have been swapped out)
+        boolean isFastestLap = false;
+        if (heat.getFastestLapUUID() == null) {
+            isFastestLap = true;
+        } else {
+            Driver fastestDriver = heat.getDrivers().get(heat.getFastestLapUUID());
+            if (fastestDriver == null) {
+                // Fastest lap driver was removed (swapped out), this is now the fastest
+                isFastestLap = true;
+            } else {
+                var fastestLap = fastestDriver.getBestLap();
+                if (fastestLap.isPresent()) {
+                    isFastestLap = getCurrentLap().getLapTime() < fastestLap.get().getLapTime() || 
+                                   getCurrentLap().equals(fastestLap.get());
+                } else {
+                    isFastestLap = true;
+                }
+            }
+        }
 
         if (isFastestLap) {
             EventAnnouncements.broadcastFastestLap(heat, this, getCurrentLap(), oldBest);

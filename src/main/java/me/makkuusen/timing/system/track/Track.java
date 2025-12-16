@@ -122,13 +122,15 @@ public class Track {
 
 
             ItemMeta im = toReturn.getItemMeta();
-            im.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-            im.addItemFlags(ItemFlag.HIDE_ITEM_SPECIFICS);
-            im.addItemFlags(ItemFlag.HIDE_DYE);
-            im.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-            im.displayName(Component.text(getDisplayName()).color(tPlayer.getTheme().getSecondary()));
-            im.lore(loreToSet);
-            toReturn.setItemMeta(im);
+            if (im != null) {
+                im.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+                im.addItemFlags(ItemFlag.HIDE_ITEM_SPECIFICS);
+                im.addItemFlags(ItemFlag.HIDE_DYE);
+                im.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+                im.displayName(Component.text(getDisplayName()).color(tPlayer.getTheme().getSecondary()));
+                im.lore(loreToSet);
+                toReturn.setItemMeta(im);
+            }
 
             return toReturn;
         }

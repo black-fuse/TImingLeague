@@ -229,6 +229,7 @@ info:
   heat_info_laps: '&1Runden: '
   heat_info_pits: '&1Boxenstopps: '
   heat_info_max_drivers: '&1Max Fahrer: '
+  heat_info_collision_mode: '&1Kollisionsmodus: '
   heat_info_drivers: '&1Fahrer: '
   heat_info_fastest_lap: '&1Schnellste Runde: &2%time% &1von &2%player%'
   round_info_heats: '&1Heats:'
@@ -314,7 +315,8 @@ broadcast:
   heat_finish_title: '&aSie haben beendet'
 
 actionbar:
-  race: '&1Runde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Boxenstopps'
+  race: '&1Runde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 |&2&l %pits% Boxenstopps'
+  race_pits_completed: "&1Runde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 | %timer%"
   race_spectator: '&2&l%name% > &1Runde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Boxenstopps'
 
 gui:

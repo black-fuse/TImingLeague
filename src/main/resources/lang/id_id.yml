@@ -204,6 +204,7 @@ info:
   heat_info_laps: "&1Ronde: "
   heat_info_pits: "&1Pits: "
   heat_info_max_drivers: "&1Pembalap maksimum: "
+  heat_info_collision_mode: "&1Mode tabrakan: "
   heat_info_drivers: "&1Pembalap-pembalap: "
   heat_info_fastest_lap: "&1Ronde tercepat: &2%time% &1oleh &2%player%"
   round_info_heats: "&1Heats:"
@@ -285,7 +286,8 @@ broadcast:
   heat_finish_title: "&aAnda selesai"
 
 actionbar:
-  race: '&1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Pits'
+  race: '&1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 |&2&l %pits% Pits'
+  race_pits_completed: "&1Lap: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l %pos%&r&1 | %timer%"
   race_spectator: '&2%name% > &1Ronde: &2&l%laps%&1/&2&l%totalLaps%&r&1 |&2&l P%pos%&r&1 |&2&l %pits%&1/&2&l%totalPits%&r&1 Pits'
 
 gui:

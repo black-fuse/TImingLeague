@@ -22,10 +22,13 @@ import me.makkuusen.timing.system.participant.Streaker;
 import me.makkuusen.timing.system.round.FinalRound;
 import me.makkuusen.timing.system.round.QualificationRound;
 import me.makkuusen.timing.system.round.Round;
+import me.makkuusen.timing.system.team.Team;
 import me.makkuusen.timing.system.track.locations.TrackLocation;
+import me.makkuusen.timing.system.tplayer.TPlayer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -33,6 +36,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static me.makkuusen.timing.system.loneliness.DeltaGhostingController.checkDeltas;
@@ -50,6 +54,8 @@ public class Heat {
     private HeatState heatState;
     private HashMap<UUID, Driver> drivers = new HashMap<>();
     private HashMap<UUID, Streaker> streakers = new HashMap<>();
+    private HashMap<Integer, TeamHeatEntry> teamEntries = new HashMap<>();
+    private HashMap<UUID, Integer> playerToTeam = new HashMap<>();
     private GridManager gridManager;
     private List<Driver> startPositions = new ArrayList<>();
     private List<Driver> livePositions = new ArrayList<>();
@@ -59,10 +65,13 @@ public class Heat {
     private Integer totalPits;
     private Integer startDelay;
     private Integer maxDrivers;
-    private Boolean lonely;
+    private CollisionMode collisionMode;
     private Boolean reset;
     private Boolean lapReset;
     private Integer ghostingDelta;
+    private Boolean boatSwitching;
+    private Boolean drs;
+    private Integer drsDowntime;
     private SpectatorScoreboard scoreboard;
     private Instant lastScoreboardUpdate = Instant.now();
 
@@ -78,13 +87,27 @@ public class Heat {
         totalLaps = data.get("totalLaps") == null ? null : data.getInt("totalLaps");
         totalPits = data.get("totalPitstops") == null ? null : data.getInt("totalPitstops");
         maxDrivers = data.get("maxDrivers") == null ? null : data.getInt("maxDrivers");
-        lonely = data.get("lonely") instanceof Boolean ? data.get("lonely") : data.get("lonely").equals(1);
+        // Convert legacy lonely boolean to CollisionMode
+        Boolean legacyLonely = data.get("lonely") instanceof Boolean ? (Boolean) data.get("lonely") : data.get("lonely") != null && data.get("lonely").equals(1);
+        if (data.get("collisionMode") != null) {
+            collisionMode = CollisionMode.valueOf(data.getString("collisionMode"));
+        } else {
+            // Legacy conversion: lonely=true -> DISABLED, lonely=false -> HIGH
+            collisionMode = legacyLonely ? CollisionMode.DISABLED : CollisionMode.HIGH;
+        }
         reset = data.get("canReset") instanceof Boolean ? data.get("canReset") : data.get("canReset").equals(1);
         lapReset = data.get("lapReset") instanceof Boolean ? data.get("lapReset") : data.get("lapReset").equals(1);
         ghostingDelta = data.get("ghostingDelta") == null ? null : data.getInt("ghostingDelta");
+        boatSwitching = data.get("boatSwitching") instanceof Boolean ? data.get("boatSwitching") : data.get("boatSwitching") == null ? null : data.get("boatSwitching").equals(1);
+        drs = data.get("drs") instanceof Boolean ? data.get("drs") : data.get("drs") == null ? false : data.get("drs").equals(1);
+        drsDowntime = data.get("drsDowntime") == null ? 1 : data.getInt("drsDowntime");
         startDelay = data.get("startDelay") == null ? round instanceof FinalRound ? TimingSystem.configuration.getFinalStartDelayInMS() : TimingSystem.configuration.getQualyStartDelayInMS() : data.getInt("startDelay");
         fastestLapUUID = data.getString("fastestLapUUID") == null ? null : UUID.fromString(data.getString("fastestLapUUID"));
         gridManager = new GridManager(round instanceof QualificationRound);
+        
+        if (isBoatSwitchingEnabled()) {
+            loadTeamEntries();
+        }
     }
 
     public String getName() {
@@ -182,6 +205,13 @@ public class Heat {
         setHeatState(HeatState.RACING);
         updateScoreboard();
         setStartTime(TimingSystem.currentTime);
+        
+        if (isBoatSwitchingEnabled()) {
+            for (TeamHeatEntry entry : teamEntries.values()) {
+                entry.setStartTime(TimingSystem.currentTime);
+            }
+        }
+        
         if (round instanceof QualificationRound) {
             gridManager.startDriversWithDelay(getStartDelay(), true, getStartPositions());
             return;
@@ -206,6 +236,22 @@ public class Heat {
         setHeatState(HeatState.FINISHED);
         setEndTime(TimingSystem.currentTime);
         DeltaGhostingController.clearDeltaGhosts(this);
+        
+        if (isBoatSwitchingEnabled()) {
+            int position = 1;
+            for (TeamHeatEntry entry : teamEntries.values()) {
+                if (entry.getEndTime() == null) {
+                    entry.setEndTime(TimingSystem.currentTime);
+                }
+                if (!entry.isFinished()) {
+                    entry.setFinished(true);
+                }
+                if (entry.getPosition() == null) {
+                    entry.setPosition(position++);
+                }
+            }
+        }
+        
         Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(TimingSystem.getPlugin(), () -> {
             getDrivers().values().forEach(Driver::removeScoreboard);
             scoreboard.removeScoreboards();
@@ -268,6 +314,19 @@ public class Heat {
         setFastestLapUUID(null);
         setLivePositions(new ArrayList<>());
         gridManager.clearArmorstands();
+        
+        if (isBoatSwitchingEnabled()) {
+            for (TeamHeatEntry entry : teamEntries.values()) {
+                entry.setStartTime(null);
+                entry.setEndTime(null);
+                entry.setPosition(null);
+                entry.setFinished(false);
+                entry.updateRaceProgress(0, 0);
+                entry.setPits(0);
+                entry.getLaps().clear();
+            }
+        }
+        
         getDrivers().values().forEach(driver -> {
             driver.reset();
             EventDatabase.removePlayerFromRunningHeat(driver.getTPlayer().getUniqueId());
@@ -513,6 +572,37 @@ public class Heat {
         TimingSystem.getEventDatabase().heatSet(getId(), "heatNumber", heatNumber);
     }
 
+    public void setBoatSwitching(Boolean boatSwitching) {
+        this.boatSwitching = boatSwitching;
+        TimingSystem.getEventDatabase().heatSet(getId(), "boatSwitching", boatSwitching);
+    }
+
+    public void setDrs(Boolean drs) {
+        this.drs = drs;
+        TimingSystem.getEventDatabase().heatSet(getId(), "drs", drs);
+    }
+
+    public void setDrsDowntime(Integer drsDowntime) {
+        this.drsDowntime = drsDowntime;
+        TimingSystem.getEventDatabase().heatSet(getId(), "drsDowntime", drsDowntime);
+    }
+
+    public void setCollisionMode(CollisionMode collisionMode) {
+        this.collisionMode = collisionMode;
+        TimingSystem.getEventDatabase().heatSet(getId(), "collisionMode", collisionMode.name());
+    }
+
+    // Backward compatibility method
+    public Boolean getLonely() {
+        return collisionMode == CollisionMode.DISABLED;
+    }
+
+    // Backward compatibility method
+    public void setLonely(Boolean lonely) {
+        this.collisionMode = lonely ? CollisionMode.DISABLED : CollisionMode.HIGH;
+        TimingSystem.getEventDatabase().heatSet(getId(), "collisionMode", collisionMode.name());
+    }
+
     public boolean isActive() {
         return getHeatState() == HeatState.LOADED || getHeatState() == HeatState.RACING || getHeatState() == HeatState.STARTING;
     }
@@ -527,6 +617,11 @@ public class Heat {
             scoreboard.removeScoreboards();
         }
         drivers.values().forEach(Driver::onShutdown);
+        
+        if (isBoatSwitchingEnabled()) {
+            teamEntries.clear();
+            playerToTeam.clear();
+        }
     }
 
     public void reverseGrid(Integer percentage) {
@@ -551,5 +646,114 @@ public class Heat {
         }
         startPositions.sort(Comparator.comparingInt(Driver::getStartPosition));
         livePositions.sort(Comparator.comparingInt(Driver::getPosition));
+    }
+
+    public boolean isBoatSwitchingEnabled() {
+        return boatSwitching != null && boatSwitching;
+    }
+
+    public Optional<TeamHeatEntry> getTeamEntry(int teamId) {
+        return Optional.ofNullable(teamEntries.get(teamId));
+    }
+
+    public Optional<TeamHeatEntry> getTeamEntryByPlayer(UUID playerUUID) {
+        Integer teamId = playerToTeam.get(playerUUID);
+        if (teamId == null) {
+            return Optional.empty();
+        }
+        return getTeamEntry(teamId);
+    }
+
+    public void addTeamToHeat(Team team, int startPosition) {
+        if (!isBoatSwitchingEnabled()) {
+            throw new IllegalStateException("Cannot add team to heat: boat switching is not enabled");
+        }
+
+        DbRow entryData = TimingSystem.getEventDatabase().teamHeatEntryNew(id, team.getId(), startPosition);
+        TeamHeatEntry entry = new TeamHeatEntry(entryData, this);
+
+        UUID firstOnlinePlayer = null;
+        for (TPlayer player : team.getPlayers()) {
+            if (player.getPlayer() != null && player.getPlayer().isOnline()) {
+                firstOnlinePlayer = player.getUniqueId();
+                break;
+            }
+        }
+
+        if (firstOnlinePlayer == null && !team.getPlayers().isEmpty()) {
+            firstOnlinePlayer = team.getPlayers().get(0).getUniqueId();
+        }
+
+        if (firstOnlinePlayer != null) {
+            entry.setActiveDriver(firstOnlinePlayer);
+        }
+
+        teamEntries.put(team.getId(), entry);
+        for (TPlayer player : team.getPlayers()) {
+            playerToTeam.put(player.getUniqueId(), team.getId());
+        }
+    }
+
+    public boolean removeTeamFromHeat(int teamId) {
+        if (!isBoatSwitchingEnabled()) {
+            throw new IllegalStateException("Cannot remove team: boat switching is not enabled");
+        }
+
+        if (heatState != HeatState.SETUP && heatState != HeatState.LOADED) {
+            return false;
+        }
+
+        TeamHeatEntry entry = teamEntries.get(teamId);
+        if (entry == null) {
+            return false;
+        }
+
+        TPlayer activeDriver = entry.getActiveDriver();
+        if (activeDriver != null && drivers.containsKey(activeDriver.getUniqueId())) {
+            Driver driver = drivers.get(activeDriver.getUniqueId());
+            removeDriver(driver);
+        }
+
+        if (entry.getTeam() != null) {
+            for (TPlayer player : entry.getTeam().getPlayers()) {
+                playerToTeam.remove(player.getUniqueId());
+            }
+        }
+
+        TimingSystem.getEventDatabase().teamHeatEntryRemove(entry.getId());
+
+        teamEntries.remove(teamId);
+
+        return true;
+    }
+
+    public void swapTeamDriver(TeamHeatEntry entry, UUID newDriverUUID) {
+        if (!isBoatSwitchingEnabled()) {
+            throw new IllegalStateException("Cannot swap driver: boat switching is not enabled");
+        }
+
+        if (!entry.isPlayerInTeam(newDriverUUID)) {
+            throw new IllegalArgumentException("Player is not in the team");
+        }
+
+        entry.swapDriver(newDriverUUID);
+    }
+
+    private void loadTeamEntries() {
+        try {
+            List<DbRow> entries = TimingSystem.getEventDatabase().selectTeamHeatEntries(id);
+            for (DbRow data : entries) {
+                TeamHeatEntry entry = new TeamHeatEntry(data, this);
+                teamEntries.put(entry.getTeam().getId(), entry);
+                
+                if (entry.getTeam() != null) {
+                    for (TPlayer player : entry.getTeam().getPlayers()) {
+                        playerToTeam.put(player.getUniqueId(), entry.getTeam().getId());
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            ApiUtilities.msgConsole("Failed to load team heat entries for heat " + id + ": " + e.getMessage());
+        }
     }
 }

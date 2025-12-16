@@ -1,6 +1,5 @@
 package me.makkuusen.timing.system.heat;
 
-import me.makkuusen.timing.system.api.events.driver.DriverScoreboardTitleUpdateEvent;
 import me.makkuusen.timing.system.api.events.driver.SpectatorScoreboardTitleUpdateEvent;
 import me.makkuusen.timing.system.tplayer.TPlayer;
 import me.makkuusen.timing.system.TimingSystem;
@@ -179,7 +178,7 @@ public class SpectatorScoreboard {
         if (timeDiff < 0) {
             return ScoreboardUtils.getDriverLineNegativeQualyGap(timeDiff * -1, driver, driver.getPosition(), compact, theme);
         } else if (timeDiff == 0) {
-            return ScoreboardUtils.getDriverLineEqualQualyGap(timeDiff, driver, driver.getPosition(), compact, theme);
+            return ScoreboardUtils.getDriverLineEqualQualyGap(driver, driver.getPosition(), compact, theme);
         }
         return ScoreboardUtils.getDriverLineQualyGap(timeDiff, driver, driver.getPosition(), compact, theme);
     }

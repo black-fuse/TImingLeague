@@ -5,12 +5,15 @@ import co.aikar.commands.InvalidCommandArgument;
 import co.aikar.commands.MessageKeys;
 import co.aikar.commands.PaperCommandManager;
 import co.aikar.commands.contexts.ContextResolver;
+import co.aikar.idb.DbRow;
+import me.makkuusen.timing.system.TimingSystem;
 import me.makkuusen.timing.system.api.TimingSystemAPI;
 import me.makkuusen.timing.system.boatutils.BoatUtilsManager;
 import me.makkuusen.timing.system.boatutils.BoatUtilsMode;
 import me.makkuusen.timing.system.database.EventDatabase;
 import me.makkuusen.timing.system.database.TSDatabase;
 import me.makkuusen.timing.system.database.TrackDatabase;
+import me.makkuusen.timing.system.team.Team;
 import me.makkuusen.timing.system.event.Event;
 import me.makkuusen.timing.system.heat.Heat;
 import me.makkuusen.timing.system.round.Round;
@@ -26,10 +29,7 @@ import me.makkuusen.timing.system.track.tags.TrackTag;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Boat;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class ContextResolvers {
 
@@ -53,6 +53,20 @@ public class ContextResolvers {
         manager.getCommandContexts().registerContext(
                 Track.class, ContextResolvers.getTrackContextResolver());
         manager.getCommandCompletions().registerAsyncCompletion("track", (context -> TrackDatabase.getTracksAsStrings(context.getPlayer())));
+
+        manager.getCommandContexts().registerContext(
+                Team.class, ContextResolvers.getTeamContextResolver());
+        manager.getCommandCompletions().registerAsyncCompletion("team", context -> {
+            try {
+                return TimingSystem.getTeamDatabase().selectTeams().stream()
+                        .map(row -> row.getString("name"))
+                        .sorted()
+                        .collect(java.util.stream.Collectors.toList());
+            } catch (Exception e) {
+                e.printStackTrace();
+                return new ArrayList<>();
+            }
+        });
 
         manager.getCommandContexts().registerContext(
                 TrackRegion.class, ContextResolvers.getRegionContextResolver());
@@ -174,6 +188,38 @@ public class ContextResolvers {
             return res;
         });
         manager.getCommandCompletions().registerAsyncCompletion("tracks", context -> TrackDatabase.getTracksAsStrings(context.getPlayer()));
+
+        // Team completions
+        manager.getCommandCompletions().registerAsyncCompletion("teams", context -> {
+            try {
+                return TimingSystem.getTeamDatabase().selectTeams().stream()
+                        .map(row -> row.getString("name"))
+                        .sorted()
+                        .collect(java.util.stream.Collectors.toList());
+            } catch (Exception e) {
+                e.printStackTrace();
+                return new ArrayList<>();
+            }
+        });
+
+        manager.getCommandCompletions().registerAsyncCompletion("teamplayers", context -> {
+            // Get the team from the current command context if available
+            String[] args = context.getInput().split(" ");
+            if (args.length >= 2) {
+                String teamName = args[1];
+                try {
+                    Optional<me.makkuusen.timing.system.team.Team> maybeTeam = me.makkuusen.timing.system.team.TeamManager.getTeam(teamName);
+                    if (maybeTeam.isPresent()) {
+                        return maybeTeam.get().getPlayers().stream()
+                                .map(TPlayer::getName)
+                                .collect(java.util.stream.Collectors.toList());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            return new ArrayList<>();
+        });
     }
     public static ContextResolver<Track.TrackType, BukkitCommandExecutionContext> getTrackTypeContextResolver() {
         return (c) -> {
@@ -368,6 +414,24 @@ public class ContextResolvers {
                 return BoatUtilsMode.valueOf(name.toUpperCase());
             } catch (IllegalArgumentException e) {
                 //no matching boat types
+                throw new InvalidCommandArgument(MessageKeys.INVALID_SYNTAX);
+            }
+        };
+    }
+
+    public static ContextResolver<Team, BukkitCommandExecutionContext> getTeamContextResolver() {
+        return (c) -> {
+            String teamName = c.popFirstArg();
+            try {
+                Optional<Team> maybeTeam = me.makkuusen.timing.system.team.TeamManager.getTeam(teamName);
+                if (maybeTeam.isPresent()) {
+                    return maybeTeam.get();
+                } else {
+                    // Team not found, show error
+                    throw new InvalidCommandArgument(MessageKeys.INVALID_SYNTAX);
+                }
+            } catch (Exception e) {
+                // Database error or team not found
                 throw new InvalidCommandArgument(MessageKeys.INVALID_SYNTAX);
             }
         };

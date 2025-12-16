@@ -5,6 +5,7 @@ import co.aikar.commands.annotation.*;
 import me.makkuusen.timing.system.ApiUtilities;
 import me.makkuusen.timing.system.ReadyCheckManager;
 import me.makkuusen.timing.system.participant.Streaker;
+import me.makkuusen.timing.system.team.Team;
 import me.makkuusen.timing.system.theme.messages.*;
 import me.makkuusen.timing.system.theme.messages.Error;
 import me.makkuusen.timing.system.tplayer.TPlayer;
@@ -13,9 +14,12 @@ import me.makkuusen.timing.system.database.TSDatabase;
 import me.makkuusen.timing.system.event.Event;
 import me.makkuusen.timing.system.event.EventAnnouncements;
 import me.makkuusen.timing.system.event.EventResults;
+import me.makkuusen.timing.system.heat.CollisionMode;
+import me.makkuusen.timing.system.heat.DriverSwapHandler;
 import me.makkuusen.timing.system.heat.Heat;
 import me.makkuusen.timing.system.heat.HeatState;
 import me.makkuusen.timing.system.heat.Lap;
+import me.makkuusen.timing.system.heat.TeamHeatEntry;
 import me.makkuusen.timing.system.participant.Driver;
 import me.makkuusen.timing.system.participant.DriverState;
 import me.makkuusen.timing.system.round.FinalRound;
@@ -127,6 +131,26 @@ public class CommandHeat extends BaseCommand {
         }
         player.sendMessage(maxDriversMessage);
 
+        var collisionModeMessage = Text.get(player, Info.HEAT_INFO_COLLISION_MODE);
+
+        if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
+            collisionModeMessage = collisionModeMessage.append(theme.getEditButton(player, heat.getCollisionMode().name().toLowerCase(), theme).clickEvent(ClickEvent.suggestCommand("/heat set collision " + heat.getName() + " ")));
+        } else {
+            collisionModeMessage = collisionModeMessage.append(theme.highlight(heat.getCollisionMode().name().toLowerCase()));
+        }
+        player.sendMessage(collisionModeMessage);
+
+        var drsMessage = Component.text("DRS: ").color(theme.getPrimary());
+
+        if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
+            String drsValue = (heat.getDrs() != null && heat.getDrs()) ? "true" : "false";
+            drsMessage = drsMessage.append(theme.getEditButton(player, drsValue, theme).clickEvent(ClickEvent.suggestCommand("/heat set drs " + heat.getName() + " ")));
+        } else {
+            String drsValue = (heat.getDrs() != null && heat.getDrs()) ? "enabled" : "disabled";
+            drsMessage = drsMessage.append(theme.highlight(drsValue));
+        }
+        player.sendMessage(drsMessage);
+
         if (heat.getFastestLapUUID() != null) {
             Driver d = heat.getDrivers().get(heat.getFastestLapUUID());
             player.sendMessage(Text.get(player, Info.HEAT_INFO_FASTEST_LAP, "%time%", ApiUtilities.formatAsTime(d.getBestLap().get().getLapTime()), "%player%", d.getTPlayer().getName()));
@@ -135,19 +159,41 @@ public class CommandHeat extends BaseCommand {
         var driverMessage = Text.get(player, Info.HEAT_INFO_DRIVERS);
 
         if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
-            driverMessage = driverMessage.append(Component.space()).append(theme.getAddButton().clickEvent(ClickEvent.suggestCommand("/heat add " + heat.getName() + " ")));
+            driverMessage = driverMessage.append(Component.space()).append(theme.getAddButton().clickEvent(ClickEvent.suggestCommand("/heat add " + heat.getName() + " ")))
+                .append(Component.space())
+                .append(theme.getBrackets(Component.text("+ Team"), NamedTextColor.GREEN)
+                    .clickEvent(ClickEvent.suggestCommand("/heat add team " + heat.getName() + " "))
+                    .hoverEvent(HoverEvent.showText(Component.text("Click to add a team"))));
         }
 
         player.sendMessage(driverMessage);
 
-        for (Driver d : heat.getStartPositions()) {
-            var message = theme.tab().append(Component.text(d.getStartPosition() + ": " + d.getTPlayer().getName()).color(NamedTextColor.WHITE));
+        boolean boatSwitchingEnabled = heat.getBoatSwitching() != null && heat.getBoatSwitching();
+        
+        if (boatSwitchingEnabled && !heat.getTeamEntries().isEmpty()) {
+            for (TeamHeatEntry teamEntry : heat.getTeamEntries().values()) {
+                TPlayer activeDriver = teamEntry.getActiveDriver();
+                String activeDriverName = activeDriver != null ? activeDriver.getName() : "none";
+                String teamName = teamEntry.getTeam() != null ? teamEntry.getTeam().getDisplayName() : "Unknown Team";
+                
+                var message = theme.tab().append(Component.text(teamEntry.getStartPosition() + ": " + teamName + " (Active: " + activeDriverName + ")").color(NamedTextColor.WHITE));
 
-            if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
-                message = message.append(theme.tab()).append(theme.getMoveButton().clickEvent(ClickEvent.suggestCommand("/heat set driverposition " + heat.getName() + " " + d.getTPlayer().getName() + " ")).hoverEvent(HoverEvent.showText(Text.get(player, Hover.CLICK_TO_EDIT_POSITION)))).append(Component.space()).append(theme.getRemoveButton().clickEvent(ClickEvent.suggestCommand("/heat delete driver " + heat.getName() + " " + d.getTPlayer().getName())));
+                if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
+                    message = message.append(theme.tab()).append(theme.getRemoveButton().clickEvent(ClickEvent.suggestCommand("/heat delete driver " + heat.getName() + " " + activeDriverName)));
+                }
+
+                player.sendMessage(message);
             }
+        } else {
+            for (Driver d : heat.getStartPositions()) {
+                var message = theme.tab().append(Component.text(d.getStartPosition() + ": " + d.getTPlayer().getName()).color(NamedTextColor.WHITE));
 
-            player.sendMessage(message);
+                if (!heat.isFinished() && player.hasPermission("timingsystem.packs.eventadmin")) {
+                    message = message.append(theme.tab()).append(theme.getMoveButton().clickEvent(ClickEvent.suggestCommand("/heat set driverposition " + heat.getName() + " " + d.getTPlayer().getName() + " ")).hoverEvent(HoverEvent.showText(Text.get(player, Hover.CLICK_TO_EDIT_POSITION)))).append(Component.space()).append(theme.getRemoveButton().clickEvent(ClickEvent.suggestCommand("/heat delete driver " + heat.getName() + " " + d.getTPlayer().getName())));
+                }
+
+                player.sendMessage(message);
+            }
         }
     }
 
@@ -239,6 +285,13 @@ public class CommandHeat extends BaseCommand {
         Text.send(player, Error.FAILED_TO_REMOVE_HEAT);
     }
 
+    @Subcommand("swap")
+    @CommandPermission("%permissionheat_driver_swap")
+    @Description("Take over for your team's offline driver")
+    public static void onDriverSwap(Player player) {
+        DriverSwapHandler.handleOfflineReplacement(player);
+    }
+
     @Subcommand("create")
     @CommandCompletion("@round")
     @CommandPermission("%permissionheat_create")
@@ -315,9 +368,39 @@ public class CommandHeat extends BaseCommand {
         Text.send(player, Success.SAVED);
     }
 
+    @Subcommand("set collision")
+    @CommandCompletion("@heat high|low|disabled")
+    @CommandPermission("%permissionheat_set_collision")
+    public static void onHeatSetCollision(Player player, Heat heat, String collisionMode) {
+        try {
+            CollisionMode mode = CollisionMode.valueOf(collisionMode.toUpperCase());
+            heat.setCollisionMode(mode);
+            Text.send(player, Success.SAVED);
+        } catch (IllegalArgumentException e) {
+            Text.send(player, Error.GENERIC);
+        }
+    }
+
+    @Subcommand("set drs")
+    @CommandCompletion("@heat true|false")
+    @CommandPermission("%permissionheat_set_drs")
+    public static void onHeatSetDrs(Player player, Heat heat, Boolean drs) {
+        heat.setDrs(drs);
+        Text.send(player, Success.SAVED);
+    }
+
+    @Subcommand("set drsdowntime")
+    @CommandCompletion("@heat <laps>")
+    @CommandPermission("%permissionheat_set_drsdowntime")
+    public static void onHeatSetDrsDowntime(Player player, Heat heat, Integer laps) {
+        heat.setDrsDowntime(laps);
+        Text.send(player, Success.SAVED);
+    }
+
     @Subcommand("set lonely")
     @CommandCompletion("@heat true|false")
     @CommandPermission("%permissionheat_set_lonely")
+    @Deprecated
     public static void onHeatSetLonely(Player player, Heat heat, Boolean lonely) {
         heat.setLonely(lonely);
         Text.send(player, Success.SAVED);
@@ -356,6 +439,36 @@ public class CommandHeat extends BaseCommand {
         }
         heat.setGhostingDelta(timeLimit);
         Text.send(player, Success.SAVED);
+    }
+
+    @Subcommand("set boatSwitching")
+    @CommandCompletion("@heat true|false")
+    @CommandPermission("%permissionheat_set_boatswitching")
+    public static void onHeatBoatSwitching(Player player, Heat heat, Boolean boatSwitching) {
+        if (boatSwitching) {
+            if (!heat.getDrivers().isEmpty()) {
+                player.sendMessage(Component.text("Cannot enable boat switching: heat already has individual drivers. Remove all drivers first or create a new heat.", NamedTextColor.RED));
+                return;
+            }
+            
+            if (heat.getHeatState() != HeatState.SETUP && heat.getHeatState() != HeatState.LOADED) {
+                player.sendMessage(Component.text("Cannot enable boat switching: heat has already started or finished.", NamedTextColor.RED));
+                return;
+            }
+        } else {
+            if (!heat.getTeamEntries().isEmpty()) {
+                player.sendMessage(Component.text("Cannot disable boat switching: heat already has team entries. Remove all teams first or create a new heat.", NamedTextColor.RED));
+                return;
+            }
+            
+            if (heat.getHeatState() != HeatState.SETUP && heat.getHeatState() != HeatState.LOADED) {
+                player.sendMessage(Component.text("Cannot disable boat switching: heat has already started or finished.", NamedTextColor.RED));
+                return;
+            }
+        }
+        
+        heat.setBoatSwitching(boatSwitching);
+        player.sendMessage(Component.text("Boat switching " + (boatSwitching ? "enabled" : "disabled") + " for heat " + heat.getName() + ".", NamedTextColor.GREEN));
     }
 
     @Subcommand("set driverposition")
@@ -459,6 +572,11 @@ public class CommandHeat extends BaseCommand {
             return;
         }
 
+        if (heat.isBoatSwitchingEnabled()) {
+            sender.sendMessage(Component.text("Cannot add individual drivers to a boat switching heat. Use '/heat add team <team>' instead.", NamedTextColor.RED));
+            return;
+        }
+
         if (heat.getMaxDrivers() <= heat.getDrivers().size()) {
             Text.send(sender, Error.HEAT_FULL);
             return;
@@ -488,6 +606,79 @@ public class CommandHeat extends BaseCommand {
         Text.send(sender, Error.FAILED_TO_ADD_DRIVER);
     }
 
+    @Subcommand("add team")
+    @CommandCompletion("@heat @teams")
+    @CommandPermission("%permissionheat_add_driver")
+    public static void onHeatAddTeam(Player sender, Heat heat, Team team) {
+        if (!heat.getRound().getRoundIndex().equals(heat.getEvent().getEventSchedule().getCurrentRound()) && heat.getRound().getRoundIndex() != 1) {
+            Text.send(sender, Error.ADD_DRIVER_FUTURE_ROUND);
+            return;
+        }
+
+        if (team.isEmpty()) {
+            sender.sendMessage(Component.text("Team has no players.", NamedTextColor.RED));
+            return;
+        }
+
+        boolean boatSwitchingEnabled = heat.isBoatSwitchingEnabled();
+        
+        if (!boatSwitchingEnabled) {
+            sender.sendMessage(Component.text("Cannot add teams to this heat. Boat switching is not enabled. Use '/heat add <player>' to add individual players instead.", NamedTextColor.RED));
+            return;
+        }
+
+        if (heat.getTeamEntry(team.getId()).isPresent()) {
+            sender.sendMessage(Component.text("Team " + team.getDisplayName() + " is already in this heat.", NamedTextColor.RED));
+            return;
+        }
+
+        if (heat.getMaxDrivers() < heat.getTeamEntries().size() + 1) {
+            sender.sendMessage(Component.text("Not enough space in heat. Heat is full.", NamedTextColor.RED));
+            return;
+        }
+
+        for (TPlayer teamPlayer : team.getPlayers()) {
+            var existingTeamEntry = heat.getTeamEntryByPlayer(teamPlayer.getUniqueId());
+            if (existingTeamEntry.isPresent()) {
+                var existingTeam = existingTeamEntry.get().getTeam();
+                String existingTeamName = existingTeam != null ? existingTeam.getDisplayName() : "Unknown";
+                sender.sendMessage(Component.text("Cannot add team: Player " + teamPlayer.getName() + 
+                    " is already in this heat as part of team " + existingTeamName + ".", NamedTextColor.RED));
+                return;
+            }
+        }
+
+        int startPosition = heat.getTeamEntries().size() + 1;
+        heat.addTeamToHeat(team, startPosition);
+        
+        TeamHeatEntry teamEntry = heat.getTeamEntry(team.getId()).orElse(null);
+        if (teamEntry == null) {
+            sender.sendMessage(Component.text("Failed to create team heat entry.", NamedTextColor.RED));
+            return;
+        }
+        
+        TPlayer activeDriver = teamEntry.getActiveDriver();
+        if (activeDriver != null && !heat.getDrivers().containsKey(activeDriver.getUniqueId())) {
+            EventDatabase.heatDriverNew(activeDriver.getUniqueId(), heat, startPosition);
+        }
+        
+        if (heat.getHeatState() == HeatState.LOADED) {
+            if (activeDriver != null && heat.getDrivers().containsKey(activeDriver.getUniqueId())) {
+                heat.addDriverToGrid(heat.getDrivers().get(activeDriver.getUniqueId()));
+                sender.sendMessage(Component.text("Added team " + team.getDisplayName() + 
+                    " to heat. Active driver: " + activeDriver.getName() + 
+                    " (placed on grid).", NamedTextColor.GREEN));
+            } else {
+                sender.sendMessage(Component.text("Added team " + team.getDisplayName() + 
+                    " to heat (no active driver to place on grid).", NamedTextColor.GREEN));
+            }
+        } else {
+            String activeDriverName = activeDriver != null ? activeDriver.getName() : "none";
+            sender.sendMessage(Component.text("Added team " + team.getDisplayName() + 
+                " to heat. Active driver: " + activeDriverName + ".", NamedTextColor.GREEN));
+        }
+    }
+
 
     @Subcommand("delete streaker")
     @CommandCompletion("@heat @players")
@@ -505,6 +696,41 @@ public class CommandHeat extends BaseCommand {
         
         heat.removeStreaker(tPlayer.getUniqueId());
         Text.send(sender, Success.DRIVER_REMOVED, "%player%", tPlayer.getName());
+    }
+
+    @Subcommand("delete team")
+    @CommandCompletion("@heat @teams")
+    @CommandPermission("%permissionheat_removedriver")
+    public static void onHeatRemoveTeam(Player sender, Heat heat, Team team) {
+        if (!heat.isBoatSwitchingEnabled()) {
+            sender.sendMessage(Component.text("This heat does not have boat switching enabled.", NamedTextColor.RED));
+            return;
+        }
+
+        if (!heat.getTeamEntry(team.getId()).isPresent()) {
+            sender.sendMessage(Component.text("Team " + team.getDisplayName() + " is not in this heat.", NamedTextColor.RED));
+            return;
+        }
+
+        if (heat.isRacing()) {
+            sender.sendMessage(Component.text("Cannot remove team while heat is racing. Disqualify the active driver instead.", NamedTextColor.RED));
+            return;
+        }
+
+        boolean needsReload = heat.getHeatState() == HeatState.LOADED;
+        if (needsReload) {
+            heat.resetHeat();
+        }
+
+        if (heat.removeTeamFromHeat(team.getId())) {
+            sender.sendMessage(Component.text("Removed team " + team.getDisplayName() + " from heat.", NamedTextColor.GREEN));
+            
+            if (needsReload && !heat.getTeamEntries().isEmpty()) {
+                heat.loadHeat();
+            }
+        } else {
+            sender.sendMessage(Component.text("Failed to remove team from heat.", NamedTextColor.RED));
+        }
     }
 
     @Subcommand("delete driver")
@@ -617,6 +843,11 @@ public class CommandHeat extends BaseCommand {
     public static void onHeatAddDrivers(Player sender, Heat heat) {
         if (!heat.getRound().getRoundIndex().equals(heat.getEvent().getEventSchedule().getCurrentRound()) && heat.getRound().getRoundIndex() != 1) {
             Text.send(sender, Error.ADD_DRIVER_FUTURE_ROUND);
+            return;
+        }
+        
+        if (heat.isBoatSwitchingEnabled()) {
+            sender.sendMessage(Component.text("Cannot add individual drivers to a boat switching heat. Use '/heat add team <team>' instead.", NamedTextColor.RED));
             return;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {

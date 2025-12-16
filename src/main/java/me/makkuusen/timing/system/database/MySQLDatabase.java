@@ -16,6 +16,8 @@ import me.makkuusen.timing.system.round.FinalRound;
 import me.makkuusen.timing.system.round.QualificationRound;
 import me.makkuusen.timing.system.round.Round;
 import me.makkuusen.timing.system.round.RoundType;
+import me.makkuusen.timing.system.team.Team;
+import me.makkuusen.timing.system.team.TeamManager;
 import me.makkuusen.timing.system.tplayer.TPlayer;
 import me.makkuusen.timing.system.track.*;
 import me.makkuusen.timing.system.track.locations.TrackLocation;
@@ -34,7 +36,7 @@ import java.util.UUID;
 
 import static me.makkuusen.timing.system.TimingSystem.getPlugin;
 
-public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, LogDatabase {
+public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, LogDatabase, TeamDatabase {
 
 
     @Override
@@ -58,7 +60,7 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
         try {
             var row = DB.getFirstRow("SELECT * FROM `ts_version` ORDER BY `date` DESC;");
 
-            int databaseVersion = 9;
+            int databaseVersion = 13;
             if (row == null) { // First startup
                 DB.executeInsert("INSERT INTO `ts_version` (`version`, `date`) VALUES(?, ?);",
                         databaseVersion,
@@ -132,6 +134,18 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
         }
         if (previousVersion < 9) {
             Version9.updateMySQL();
+        }
+        if (previousVersion < 10) {
+            Version10.updateMySQL();
+        }
+        if (previousVersion < 11) {
+            Version11.updateMySQL();
+        }
+        if (previousVersion < 12) {
+            Version12.updateMySQL();
+        }
+        if (previousVersion < 13) {
+            Version13.updateMySQL();
         }
     }
 
@@ -260,9 +274,13 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
                       `startDelay` int(11) DEFAULT NULL,
                       `maxDrivers` int(11) DEFAULT NULL,
                       `lonely` tinyint(1) NOT NULL DEFAULT '0',
+                      `collisionMode` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
                       `canReset` tinyint(1) NOT NULL DEFAULT '0',
                       `lapReset` tinyint(1) NOT NULL DEFAULT '0',
                       `ghostingDelta` int(11) DEFAULT NULL,
+                      `boatSwitching` tinyint(1) DEFAULT NULL,
+                      `drs` tinyint(1) NOT NULL DEFAULT '0',
+                      `drsDowntime` int(11) DEFAULT NULL,
                       `isRemoved` tinyint(1) NOT NULL DEFAULT '0',
                       PRIMARY KEY (`id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;""");
@@ -369,6 +387,66 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
                       `trackId` int(11) NOT NULL,
                       `option` int(11) NOT NULL,
                       PRIMARY KEY (`id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    """);
+
+            DB.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS `ts_teams` (
+                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                      `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                      `creator` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                      `dateCreated` bigint(30) NOT NULL,
+                      `isRemoved` tinyint(1) NOT NULL DEFAULT '0',
+                      PRIMARY KEY (`id`),
+                      UNIQUE KEY `name` (`name`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    """);
+
+            DB.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS `ts_team_players` (
+                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                      `teamId` int(11) NOT NULL,
+                      `playerUuid` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                      `position` int(11) NOT NULL,
+                      `dateAdded` bigint(30) NOT NULL,
+                      PRIMARY KEY (`id`),
+                      FOREIGN KEY (`teamId`) REFERENCES `ts_teams`(`id`) ON DELETE CASCADE,
+                      UNIQUE KEY `team_player` (`teamId`, `playerUuid`),
+                      UNIQUE KEY `team_position` (`teamId`, `position`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    """);
+
+            DB.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS `ts_team_heat_entries` (
+                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                      `heatId` int(11) NOT NULL,
+                      `teamId` int(11) NOT NULL,
+                      `activeDriverUUID` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+                      `currentLap` int(11) NOT NULL DEFAULT 0,
+                      `currentCheckpoint` int(11) NOT NULL DEFAULT 0,
+                      `startTime` bigint(30) DEFAULT NULL,
+                      `endTime` bigint(30) DEFAULT NULL,
+                      `position` int(11) DEFAULT NULL,
+                      `startPosition` int(11) NOT NULL,
+                      `pits` int(11) NOT NULL DEFAULT 0,
+                      `finished` tinyint(1) NOT NULL DEFAULT 0,
+                      PRIMARY KEY (`id`),
+                      FOREIGN KEY (`heatId`) REFERENCES `ts_heats`(`id`) ON DELETE CASCADE,
+                      FOREIGN KEY (`teamId`) REFERENCES `ts_teams`(`id`) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    """);
+
+            DB.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS `ts_team_laps` (
+                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                      `teamHeatEntryId` int(11) NOT NULL,
+                      `lapNumber` int(11) NOT NULL,
+                      `lapStart` bigint(30) NOT NULL,
+                      `lapEnd` bigint(30) DEFAULT NULL,
+                      `driverUUID` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                      `pitted` tinyint(1) NOT NULL DEFAULT 0,
+                      PRIMARY KEY (`id`),
+                      FOREIGN KEY (`teamHeatEntryId`) REFERENCES `ts_team_heat_entries`(`id`) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                     """);
             return true;
@@ -671,6 +749,14 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
     }
 
     @Override
+    public void heatSet(long heatId, String column, Boolean value) {
+        DB.executeUpdateAsync("UPDATE `ts_heats` SET `" + column + "` = ? WHERE `id` = ?;",
+                value,
+                heatId
+        );
+    }
+
+    @Override
     public void driverSet(long driverId, String column, Integer value) {
         DB.executeUpdateAsync("UPDATE `ts_drivers` SET `" + column + "` = ? WHERE `id` = ?;",
                 value,
@@ -683,6 +769,86 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
         DB.executeUpdateAsync("UPDATE `ts_drivers` SET `" + column + "` = ? WHERE `id` = ?;",
                 value,
                 driverId
+        );
+    }
+
+    @Override
+    public DbRow teamHeatEntryNew(int heatId, int teamId, int startPosition) {
+        try {
+            var entryId = DB.executeInsert("INSERT INTO `ts_team_heat_entries`(`heatId`, `teamId`, `activeDriverUUID`, `currentLap`, `currentCheckpoint`, `startTime`, `endTime`, `position`, `startPosition`, `pits`, `finished`) VALUES (?, ?, NULL, 0, 0, NULL, NULL, NULL, ?, 0, 0);",
+                    heatId,
+                    teamId,
+                    startPosition
+            );
+            return DB.getFirstRow("SELECT * FROM `ts_team_heat_entries` WHERE `id` = ?;",
+                    entryId
+            );
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public List<DbRow> selectTeamHeatEntries(int heatId) throws SQLException {
+        return DB.getResults("SELECT * FROM `ts_team_heat_entries` WHERE `heatId` = ?;",
+                heatId
+        );
+    }
+
+    @Override
+    public void teamHeatEntrySet(long teamHeatEntryId, String column, String value) {
+        DB.executeUpdateAsync("UPDATE `ts_team_heat_entries` SET `" + column + "` = ? WHERE `id` = ?;",
+                value,
+                teamHeatEntryId
+        );
+    }
+
+    @Override
+    public void teamHeatEntrySet(long teamHeatEntryId, String column, Integer value) {
+        DB.executeUpdateAsync("UPDATE `ts_team_heat_entries` SET `" + column + "` = ? WHERE `id` = ?;",
+                value,
+                teamHeatEntryId
+        );
+    }
+
+    @Override
+    public void teamHeatEntrySet(long teamHeatEntryId, String column, Long value) {
+        DB.executeUpdateAsync("UPDATE `ts_team_heat_entries` SET `" + column + "` = ? WHERE `id` = ?;",
+                value,
+                teamHeatEntryId
+        );
+    }
+
+    @Override
+    public void teamHeatEntrySet(long teamHeatEntryId, String column, Boolean value) {
+        DB.executeUpdateAsync("UPDATE `ts_team_heat_entries` SET `" + column + "` = ? WHERE `id` = ?;",
+                value,
+                teamHeatEntryId
+        );
+    }
+
+    @Override
+    public void teamHeatEntryRemove(long teamHeatEntryId) {
+        DB.executeUpdateAsync("DELETE FROM `ts_team_heat_entries` WHERE `id` = ?;", teamHeatEntryId);
+    }
+
+    @Override
+    public void createTeamLap(int teamHeatEntryId, int lapNumber, long lapStart, Long lapEnd, UUID driverUUID, boolean pitted) {
+        DB.executeUpdateAsync("INSERT INTO `ts_team_laps`(`teamHeatEntryId`, `lapNumber`, `lapStart`, `lapEnd`, `driverUUID`, `pitted`) VALUES (?, ?, ?, ?, ?, ?);",
+                teamHeatEntryId,
+                lapNumber,
+                lapStart,
+                lapEnd,
+                driverUUID.toString(),
+                pitted
+        );
+    }
+
+    @Override
+    public List<DbRow> selectTeamLaps(int teamHeatEntryId) throws SQLException {
+        return DB.getResults("SELECT * FROM `ts_team_laps` WHERE `teamHeatEntryId` = ?;",
+                teamHeatEntryId
         );
     }
 
@@ -1015,5 +1181,87 @@ public class MySQLDatabase implements TSDatabase, EventDatabase, TrackDatabase, 
             e.printStackTrace();
             return false;
         }
+    }
+
+    // TeamDatabase implementation
+    @Override
+    public long createTeam(String name, UUID creator, long dateCreated) throws SQLException {
+        return DB.executeInsert("INSERT INTO ts_teams (name, creator, dateCreated, isRemoved) VALUES (?, ?, ?, ?)",
+                name, creator.toString(), dateCreated, 0);
+    }
+
+    @Override
+    public List<DbRow> selectTeams() throws SQLException {
+        return DB.getResults("SELECT * FROM ts_teams WHERE isRemoved = 0 ORDER BY name");
+    }
+
+    @Override
+    public DbRow selectTeam(int teamId) throws SQLException {
+        return DB.getFirstRow("SELECT * FROM ts_teams WHERE id = ? AND isRemoved = 0", teamId);
+    }
+
+    @Override
+    public void deleteTeam(int teamId) {
+        try {
+            // Delete team players first (foreign key constraint)
+            DB.executeUpdate("DELETE FROM ts_team_players WHERE teamId = ?", teamId);
+            // Actually delete the team instead of soft delete to allow name reuse
+            DB.executeUpdate("DELETE FROM ts_teams WHERE id = ?", teamId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void addPlayerToTeam(int teamId, UUID playerUuid, int position) throws SQLException {
+        DB.executeUpdate("INSERT INTO ts_team_players (teamId, playerUuid, position, dateAdded) VALUES (?, ?, ?, ?)",
+                teamId, playerUuid.toString(), position, System.currentTimeMillis() / 1000);
+    }
+
+
+
+    @Override
+    public List<DbRow> selectTeamPlayers(int teamId) throws SQLException {
+        return DB.getResults("SELECT * FROM ts_team_players WHERE teamId = ? ORDER BY position", teamId);
+    }
+
+    @Override
+    public boolean teamNameExists(String name) throws SQLException {
+        DbRow row = DB.getFirstRow("SELECT id FROM ts_teams WHERE name = ? AND isRemoved = 0", name);
+        return row != null;
+    }
+
+    @Override
+    public DbRow selectTeamByName(String name) throws SQLException {
+        return DB.getFirstRow("SELECT * FROM ts_teams WHERE name = ? AND isRemoved = 0", name);
+    }
+
+    @Override
+    public void removePlayerFromTeam(int teamId, UUID playerUuid) {
+        try {
+            DB.executeUpdate("DELETE FROM ts_team_players WHERE teamId = ? AND playerUuid = ?",
+                    teamId, playerUuid.toString());
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void teamSet(int teamId, String column, String value) {
+        DB.executeUpdateAsync("UPDATE ts_teams SET " + column + " = ? WHERE id = ?", value, teamId);
+    }
+
+    @Override
+    public int getNextPlayerPosition(int teamId) throws SQLException {
+        DbRow row = DB.getFirstRow("SELECT MAX(position) as maxPos FROM ts_team_players WHERE teamId = ?", teamId);
+        if (row == null || row.get("maxPos") == null) {
+            return 1;
+        }
+        return row.getInt("maxPos") + 1;
+    }
+
+    @Override
+    public java.util.Optional<Team> getTeam(Integer teamId) {
+        return TeamManager.getTeam(teamId);
     }
 }
