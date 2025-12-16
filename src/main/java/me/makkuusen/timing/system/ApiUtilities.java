@@ -266,7 +266,7 @@ public class ApiUtilities {
 
     public static String formatAsTime(long time) {
         String toReturn;
-        long timeInMillis = getRoundedToTick(time);
+        long timeInMillis = time;
         long hours = TimeUnit.MILLISECONDS.toHours(timeInMillis);
         long minutes = TimeUnit.MILLISECONDS.toMinutes(timeInMillis) % TimeUnit.HOURS.toMinutes(1);
         long seconds = TimeUnit.MILLISECONDS.toSeconds(timeInMillis) % TimeUnit.MINUTES.toSeconds(1);
@@ -381,11 +381,11 @@ public class ApiUtilities {
 
     public static String formatAsRacingGap(long time) {
         String toReturn;
-        long timeInMillis = getRoundedToTick(time);
-        long hours = TimeUnit.MILLISECONDS.toHours(timeInMillis);
-        long minutes = TimeUnit.MILLISECONDS.toMinutes(timeInMillis) % TimeUnit.HOURS.toMinutes(1);
-        long seconds = TimeUnit.MILLISECONDS.toSeconds(timeInMillis) % TimeUnit.MINUTES.toSeconds(1);
-        String millis = String.format("%02d", (timeInMillis % 1000) / 10);
+        //long timeInMillis = getRoundedToTick(time);
+        long hours = TimeUnit.MILLISECONDS.toHours(time);
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(time) % TimeUnit.HOURS.toMinutes(1);
+        long seconds = TimeUnit.MILLISECONDS.toSeconds(time) % TimeUnit.MINUTES.toSeconds(1);
+        String millis = String.format("%02d", (time % 1000) / 10);
 
         if (hours == 0 && minutes == 0) {
             toReturn = String.format("%02d", seconds) + "." + millis;
@@ -399,11 +399,11 @@ public class ApiUtilities {
 
     public static String formatAsQualificationGap(long time) {
         String toReturn;
-        long timeInMillis = getRoundedToTick(time);
-        long hours = TimeUnit.MILLISECONDS.toHours(timeInMillis);
-        long minutes = TimeUnit.MILLISECONDS.toMinutes(timeInMillis) % TimeUnit.HOURS.toMinutes(1);
-        long seconds = TimeUnit.MILLISECONDS.toSeconds(timeInMillis) % TimeUnit.MINUTES.toSeconds(1);
-        String millis = String.format("%02d", (timeInMillis % 1000) / 10);
+        //long timeInMillis = getRoundedToTick(time);
+        long hours = TimeUnit.MILLISECONDS.toHours(time);
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(time) % TimeUnit.HOURS.toMinutes(1);
+        long seconds = TimeUnit.MILLISECONDS.toSeconds(time) % TimeUnit.MINUTES.toSeconds(1);
+        String millis = String.format("%02d", (time % 1000) / 10);
 
         if (hours == 0 && minutes == 0) {
             toReturn = String.format("%02d", seconds) + "." + millis;
@@ -417,7 +417,7 @@ public class ApiUtilities {
 
     public static String formatAsPersonalGap(long time) {
         String toReturn;
-        long timeInMillis = getRoundedToTick(time);
+        long timeInMillis = time;
         long hours = TimeUnit.MILLISECONDS.toHours(timeInMillis);
         long minutes = TimeUnit.MILLISECONDS.toMinutes(timeInMillis) % TimeUnit.HOURS.toMinutes(1);
         long seconds = TimeUnit.MILLISECONDS.toSeconds(timeInMillis) % TimeUnit.MINUTES.toSeconds(1);
@@ -686,7 +686,6 @@ public class ApiUtilities {
     }
 
     public static void teleportPlayerAndSpawnBoat(Player player, Track track, Location location) {
-
         TaskChain<?> chain = TimingSystem.newChain();
         location.setPitch(player.getLocation().getPitch());
         boolean sameAsLastTrack = TimeTrialController.lastTimeTrialTrack.containsKey(player.getUniqueId()) && TimeTrialController.lastTimeTrialTrack.get(player.getUniqueId()).getId() == track.getId();
@@ -725,8 +724,6 @@ public class ApiUtilities {
         TimeTrialController.elytraProtection.put(player.getUniqueId(), Instant.now().getEpochSecond() + 10);
     }
 
-// DO NOT DELETE - OLD METHOD
-// if you need to bring it back, update to match above method
 //    public static void teleportPlayerAndSpawnBoat(Player player, Track track, Location location, PlayerTeleportEvent.TeleportCause teleportCause) {
 //        TaskChain<?> chain = TimingSystem.newChain();
 //        location.setPitch(player.getLocation().getPitch());
