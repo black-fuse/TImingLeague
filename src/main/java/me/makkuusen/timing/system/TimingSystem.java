@@ -120,7 +120,6 @@ public class TimingSystem extends JavaPlugin {
 
         ContextResolvers.loadCommandContextsAndCompletions(manager);
 
-
         manager.registerCommand(new CommandEvent());
         manager.registerCommand(new CommandRound());
         manager.registerCommand(new CommandTrack());
@@ -161,7 +160,6 @@ public class TimingSystem extends JavaPlugin {
         tasks.startParticleSpawner(plugin);
         tasks.generateTotalTime(plugin);
         tasks.startDrsCleanup(plugin);
-
 
         // Small check to make sure that PlaceholderAPI is installed
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
