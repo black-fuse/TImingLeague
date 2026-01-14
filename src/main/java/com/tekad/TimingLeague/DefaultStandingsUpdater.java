@@ -56,41 +56,82 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
         }
 
         // Handle team points
-        for (Team team : league.getTeams()) {
-            Set<String> mainDrivers = team.getMainDrivers();
-            Set<String> reserveDrivers = team.getReserveDrivers();
+        if (league.getTeamMode() == TeamMode.PRIORITY){
+            for (Team team : league.getTeams()){
+                List<String> priorityDrivers = team.getPriorityDrivers();
+                int scorerCount = team.getCountedPrioDrivers();
+                int scored = 0;
 
-            int missingMains = 0;
+                for (String driverUUID : priorityDrivers){
+                    if (scored >= scorerCount) break;
 
-            // Award points for mains
-            for (String driverUUID : mainDrivers) {
-                DriverResult result = drivers.stream()
-                        .filter(d -> d.getUuid().equals(driverUUID))
-                        .findFirst()
-                        .orElse(null);
+                    DriverResult result = drivers.stream()
+                            .filter(d -> d.getUuid().equals(driverUUID))
+                            .findFirst()
+                            .orElse(null);
 
-                if (result != null) {
-                    int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
-                    league.addPointsToTeam(team.getName(), points);
-                } else {
-                    missingMains++;
+                    if (result != null){
+                        int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
+                        league.addPointsToTeam(team.getName(), points);
+                        scored++;
+                    }
                 }
             }
+        }
+        else if (league.getTeamMode() == TeamMode.HIGHEST) {
+            for (Team team : league.getTeams()) {
+                int maxScorers = team.getCountedPrioDrivers();
 
-            // Fill missing slots with reserves
-            int filledReserves = 0;
-            for (String driverUUID : reserveDrivers) {
-                if (filledReserves >= missingMains) break;
+                List<DriverResult> teamResults = drivers.stream()
+                        .filter(d -> team.getPriorityDrivers().contains(d.getUuid()))
+                        .sorted(Comparator.comparingInt(DriverResult::getPosition))
+                        .limit(maxScorers)
+                        .toList();
 
-                DriverResult result = drivers.stream()
-                        .filter(d -> d.getUuid().equals(driverUUID))
-                        .findFirst()
-                        .orElse(null);
-
-                if (result != null) {
-                    int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
+                for (DriverResult result : teamResults) {
+                    int points = league.getScoringSystem()
+                            .getPointsForPosition(result.getPosition(), driverCount);
                     league.addPointsToTeam(team.getName(), points);
-                    filledReserves++;
+                }
+            }
+        }
+        else{
+            for (Team team : league.getTeams()) {
+                Set<String> mainDrivers = team.getMainDrivers();
+                Set<String> reserveDrivers = team.getReserveDrivers();
+
+                int missingMains = 0;
+
+                // Award points for mains
+                for (String driverUUID : mainDrivers) {
+                    DriverResult result = drivers.stream()
+                            .filter(d -> d.getUuid().equals(driverUUID))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (result != null) {
+                        int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
+                        league.addPointsToTeam(team.getName(), points);
+                    } else {
+                        missingMains++;
+                    }
+                }
+
+                // Fill missing slots with reserves
+                int filledReserves = 0;
+                for (String driverUUID : reserveDrivers) {
+                    if (filledReserves >= missingMains) break;
+
+                    DriverResult result = drivers.stream()
+                            .filter(d -> d.getUuid().equals(driverUUID))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (result != null) {
+                        int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
+                        league.addPointsToTeam(team.getName(), points);
+                        filledReserves++;
+                    }
                 }
             }
         }

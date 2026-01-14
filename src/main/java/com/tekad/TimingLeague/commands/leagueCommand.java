@@ -760,30 +760,70 @@ public class leagueCommand implements CommandExecutor {
     }
 
     private void showHelp(Player player) {
-        player.sendMessage("""
-        === /league Command Help ===
-        /league create <leagueName> - Create a new league
-        /league <leagueName> addDriver <username> - Manually add a driver to the league
-        /league <leagueName> addEvent <eventId> - Add an event to the league calendar
-        /league <leagueName> calendar - View the league's event calendar
-        /league <leagueName> update - Update standings using all league events (pls dont use)
-        /league <leagueName> updateWithHeat <eventId> <heatId> - Update standings using a specific heat
-        /league <leagueName> team create <teamName> [hexColor] - Create a team with an optional hex color
-        /league <leagueName> team color <teamName> <hexColor> - Change a team's color
-        /league <leagueName> team add <teamName> <playerName> - Add a player to a team
-        /league <leagueName> team remove <teamName> <playerName> - Remove a player from a team
-        /league <leagueName> team view <teamName> - View a team and its members
-        /league <leagueName> team invite <teamName> <driverName>
-        /league <leagueName> team <teamName> - Shorthand to view a team
-        /league <leagueName> standings [page] - View driver standings with pagination
-        /league <leagueName> standings teams [page] - View team standings with pagination
-        /league <leagueName> holo <driver|team> [page] - Show hologram standings near you
-        /league <leagueName> holo deleteClosest - Delete the closest hologram near you
-        /league <leagueName> holo update - updates all holograms from this league
-        /league <leagueName> scoring <fc1|fc2|default> - choose a default scoring method
-        /league help - Show this help message
-        """);
+        boolean isAdmin = player.hasPermission("timingleague.admin");
+
+        List<String> lines = new ArrayList<>();
+
+        lines.add("§6=== /league Command Help ===");
+
+        // ===== General =====
+        lines.add("§e/league help §7- Show this help menu");
+
+        if (isAdmin) {
+            lines.add("§e/league create <leagueName> §7- Create a league");
+            lines.add("§e/league delete <leagueName> §7- Delete a league");
+        }
+
+        // ===== League basics =====
+        lines.add("§6--- League ---");
+        lines.add("§e/league <league> addDriver <player> §7- Manually add a driver");
+        lines.add("§e/league <league> calendar §7- View event calendar");
+        lines.add("§e/league <league> standings [page] §7- Driver standings");
+        lines.add("§e/league <league> standings teams [page] §7- Team standings");
+
+        // ===== Events / scoring (admin) =====
+        if (isAdmin) {
+            lines.add("§6--- Events & Scoring ---");
+            lines.add("§e/league <league> addEvent <eventId> §7- Add event");
+            lines.add("§e/league <league> update §7- Recalculate standings");
+            lines.add("§e/league <league> updateWithHeat <eventId> <heatId> §7- Update from heat");
+            lines.add("§e/league <league> scoring <fc1|fc2|default> §7- Set scoring system");
+            lines.add("§e/league <league> predictedDrivers [number] §7- Set/view predicted drivers");
+            lines.add("§e/league <league> points <player> <+/-num> §7- Adjust driver points");
+            lines.add("§e/league <league> teamPoints <team> <+/-num> §7- Adjust team points");
+        }
+
+        // ===== Teams =====
+        lines.add("§6--- Teams ---");
+        lines.add("§e/league <league> team list §7- List teams");
+        lines.add("§e/league <league> team view <team> §7- View team");
+        lines.add("§e/league <league> team <team> §7- Shorthand view");
+        lines.add("§e/league <league> team accept <team> §7- Accept invite");
+        lines.add("§e/league <league> team decline <team> §7- Decline invite");
+
+        if (isAdmin) {
+            lines.add("§e/league <league> team create <team> [hex] §7- Create team");
+            lines.add("§e/league <league> team color <team> <hex> §7- Set team color");
+            lines.add("§e/league <league> team add <team> <main|reserve> <player>");
+        }
+
+        lines.add("§e/league <league> team remove <team> <player> §7- Remove member");
+        lines.add("§e/league <league> team promote <team> <player> §7- Promote reserve");
+        lines.add("§e/league <league> team demote <team> <player> §7- Demote main");
+        lines.add("§e/league <league> team invite <team> <player> §7- Invite driver");
+
+        // ===== Holograms =====
+        if (isAdmin) {
+            lines.add("§6--- Holograms ---");
+            lines.add("§e/league <league> holo <driver|team> [page]");
+            lines.add("§e/league <league> holo deleteClosest");
+            lines.add("§e/league <league> holo update");
+        }
+
+        // Send
+        player.sendMessage(lines.toArray(new String[0]));
     }
+
 
     private void sendTeamDetails(Player player, Team team) {
         StringBuilder sb = new StringBuilder();

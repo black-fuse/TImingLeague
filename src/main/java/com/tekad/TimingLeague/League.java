@@ -29,6 +29,13 @@ public class League {
 
     private StandingsUpdater updater = new DefaultStandingsUpdater();
 
+    @Getter @Setter
+    private TeamMode teamMode = TeamMode.MAIN_RESERVE;
+    @Getter @Setter
+    private int teamMaxSize = 4;
+    @Getter @Setter
+    private int teamScoringCount = 2;
+
     public League(String name, int predictedDriverCount) {
         this.name = name;
         this.predictedDriverCount = predictedDriverCount;
@@ -109,6 +116,16 @@ public class League {
     public boolean addReserveDriverToTeam(String uuid, String teamName){
         Team team = getTeam(teamName);
         Boolean success = team.addReserveDriver(uuid);
+        if (success){
+            driversList.put(uuid, team);
+        }
+
+        return success;
+    }
+
+    public boolean addDriverToTeam(String uuid, String teamName, int priority){
+        Team team = getTeam(teamName);
+        Boolean success = team.addDriver(uuid, priority);
         if (success){
             driversList.put(uuid, team);
         }

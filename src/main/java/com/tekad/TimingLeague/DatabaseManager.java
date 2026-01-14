@@ -71,15 +71,37 @@ public class DatabaseManager {
         stmt.close();
     }
 
-    public void saveLeague(League league) throws SQLException {
-        connection.setAutoCommit(false); // start transaction
+    private boolean columnExists(Connection conn, String table, String column) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "PRAGMA table_info(" + table + ")")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    if (column.equalsIgnoreCase(rs.getString("name"))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 
+    public void saveLeague(League league) throws SQLException {
+        if (!columnExists(connection, "leagues", "teamMode")) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(
+                        "ALTER TABLE leagues ADD COLUMN teamMode TEXT DEFAULT 'MAIN_RESERVE'"
+                );
+            }
+        }
+
+        connection.setAutoCommit(false); // start transaction
         try {
             // 1. Save league info
             try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers) VALUES (?, ?)")) {
+                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode) VALUES (?, ?, ?)")) {
                 ps.setString(1, league.getName());
                 ps.setInt(2, league.getPredictedDriverCount());
+                ps.setString(3, league.getTeamMode().name());
                 ps.executeUpdate();
             }
 
@@ -302,6 +324,15 @@ public class DatabaseManager {
 
         int predictedDrivers = leagueResult.getInt("predictedDrivers");
         League league = new League(name, predictedDrivers);
+
+        TeamMode teamMode;
+        try {
+            teamMode = TeamMode.valueOf(leagueResult.getString("teamMode"));
+        } catch (IllegalArgumentException | NullPointerException e) {
+            teamMode = TeamMode.MAIN_RESERVE; // safe default
+        }
+        league.setTeamMode(teamMode);
+
         leagueStmt.close();
 
         // Load teams
