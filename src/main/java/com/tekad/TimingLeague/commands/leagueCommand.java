@@ -211,6 +211,7 @@ public class leagueCommand implements CommandExecutor {
                             league.setScoringSystem(new BasicScoringSystem());
                         } else {
                             player.sendMessage("not a valid scoring system");
+                            player.sendMessage("Current scoring system: " + league.getScoringSystem().toString());
                         }
                     }
 
@@ -400,7 +401,57 @@ public class leagueCommand implements CommandExecutor {
                         return createOrUpdateHolograms(league, page, player, args[2]);
                     }
 
+                    case "teammode" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
 
+                        if (args.length < 3) {
+                            player.sendMessage("Current team mode: " + league.getTeamMode());
+                            player.sendMessage("Usage: /league <league> teammode <MAIN_RESERVE|PRIORITY|HIGHEST>");
+                            return true;
+                        }
+
+                        try {
+                            TeamMode mode = TeamMode.valueOf(args[2].toUpperCase());
+                            league.setTeamMode(mode);
+                            player.sendMessage("Team mode set to: " + mode);
+                        } catch (IllegalArgumentException e) {
+                            player.sendMessage(ChatColor.RED + "Invalid mode. Options: MAIN_RESERVE, PRIORITY, HIGHEST");
+                        }
+                    }
+
+                    case "teamconfig" -> {
+                        if (!sender.hasPermission("timingleague.admin")) {
+                            sender.sendMessage(ChatColor.RED + "You do not have permission to run this command.");
+                            return true;
+                        }
+
+                        if (args.length < 4) {
+                            player.sendMessage("Current config - Max size: " + league.getTeamMaxSize() +
+                                    ", Scoring count: " + league.getTeamScoringCount());
+                            player.sendMessage("Usage: /league <league> teamconfig <maxSize> <scoringCount>");
+                            return true;
+                        }
+
+                        try {
+                            int maxSize = Integer.parseInt(args[2]);
+                            int scoringCount = Integer.parseInt(args[3]);
+
+                            league.setTeamMaxSize(maxSize);
+                            league.setTeamScoringCount(scoringCount);
+
+                            // Update all teams
+                            for (Team team : league.getTeams()) {
+                                team.setCountedPrioDrivers(scoringCount);
+                            }
+
+                            player.sendMessage("Team config updated - Max: " + maxSize + ", Scoring: " + scoringCount);
+                        } catch (NumberFormatException e) {
+                            player.sendMessage(ChatColor.RED + "Invalid numbers provided.");
+                        }
+                    }
 
                     case "team" -> {
                         if (args.length < 3) {
@@ -494,7 +545,8 @@ public class leagueCommand implements CommandExecutor {
                                     success = league.addReserveDriverToTeam(uuid, team.getName());
                                 } else {
                                     player.sendMessage("Invalid type. Use 'main' or 'reserve'.");
-                                    return true;
+                                    success = league.addDriverToTeam(uuid, team.getName(), 99999);
+                                    //return true;
                                 }
 
                                 if (success) {
@@ -535,6 +587,105 @@ public class leagueCommand implements CommandExecutor {
                                 player.sendMessage("Removed player " + target.getName() + " from team " + team.getName() + ".");
                             }
 
+                            case "roster" -> {
+                                if (args.length < 4) {
+                                    player.sendMessage("Usage: /league <league> team roster <teamName>");
+                                    return true;
+                                }
+
+                                Team team = league.getTeam(args[3]);
+                                if (team == null) {
+                                    player.sendMessage("Team not found: " + args[3]);
+                                    return true;
+                                }
+
+                                sendTeamDetails(player, team, league);
+                            }
+
+                            case "setpriority" -> {
+                                if (args.length < 6) {
+                                    player.sendMessage("Usage: /league <league> team setpriority <teamName> <player> <position>");
+                                    return true;
+                                }
+
+                                Team team = league.getTeam(args[3]);
+                                if (team == null) {
+                                    player.sendMessage("Team not found: " + args[3]);
+                                    return true;
+                                }
+
+                                // Permission check: owner or admin
+                                String owner = team.getOwner();
+                                if (!sender.hasPermission("timingleague.admin") &&
+                                        (owner == null || !owner.equals(player.getUniqueId().toString()))) {
+                                    player.sendMessage(ChatColor.RED + "You do not have permission over this team.");
+                                    return true;
+                                }
+
+                                // Must be in PRIORITY or HIGHEST mode
+                                if (league.getTeamMode() != TeamMode.PRIORITY && league.getTeamMode() != TeamMode.HIGHEST) {
+                                    player.sendMessage(ChatColor.RED + "This league is not using PRIORITY or HIGHEST mode.");
+                                    return true;
+                                }
+
+                                OfflinePlayer target = Bukkit.getOfflinePlayer(args[4]);
+                                String uuid = target.getUniqueId().toString();
+
+                                try {
+                                    int position = Integer.parseInt(args[5]) - 1; // Convert to 0-indexed
+
+                                    if (position < 0) {
+                                        player.sendMessage(ChatColor.RED + "Position must be 1 or higher.");
+                                        return true;
+                                    }
+
+                                    boolean success = team.addPriorityDriver(uuid, position);
+                                    league.addDriver(uuid, team); // Ensure driver is tracked
+
+                                    if (success) {
+                                        player.sendMessage(ChatColor.GREEN + target.getName() + " set to priority position " +
+                                                (position + 1) + " on team " + team.getName());
+                                    } else {
+                                        player.sendMessage(ChatColor.RED + "Could not set priority (team might be full).");
+                                    }
+                                } catch (NumberFormatException e) {
+                                    player.sendMessage(ChatColor.RED + "Invalid position number.");
+                                }
+                            }
+
+                            case "removepriority" -> {
+                                if (args.length < 5) {
+                                    player.sendMessage("Usage: /league <league> team removepriority <teamName> <player>");
+                                    return true;
+                                }
+
+                                Team team = league.getTeam(args[3]);
+                                if (team == null) {
+                                    player.sendMessage("Team not found: " + args[3]);
+                                    return true;
+                                }
+
+                                // Permission check: owner or admin
+                                String owner = team.getOwner();
+                                if (!sender.hasPermission("timingleague.admin") &&
+                                        (owner == null || !owner.equals(player.getUniqueId().toString()))) {
+                                    player.sendMessage(ChatColor.RED + "You do not have permission over this team.");
+                                    return true;
+                                }
+
+                                OfflinePlayer target = Bukkit.getOfflinePlayer(args[4]);
+                                String uuid = target.getUniqueId().toString();
+
+                                boolean removed = team.removeMember(uuid);
+
+                                if (removed) {
+                                    player.sendMessage(ChatColor.GREEN + target.getName() + " removed from team " + team.getName());
+                                } else {
+                                    player.sendMessage(ChatColor.RED + "Player is not on this team.");
+                                }
+                            }
+
+
                             case "invite" -> {
                                 if (args.length < 5) {
                                     player.sendMessage("Usage: /league <leagueName> team invite <teamName> <driverName>");
@@ -569,7 +720,7 @@ public class leagueCommand implements CommandExecutor {
                                 if (target.isOnline()) {
                                     target.getPlayer().sendMessage(ChatColor.GREEN + "You’ve been invited to join team " +
                                             teamName + " in league " + leagueName +
-                                            ". Use /league " + leagueName + " team " + " accept to join." + teamName);
+                                            ". Use /league " + leagueName + " team " + " accept " + teamName);
                                 }
 
                                 player.sendMessage("Invite sent to " + driverName + " for team " + teamName + ".");
@@ -609,7 +760,7 @@ public class leagueCommand implements CommandExecutor {
                                 }
 
                                 // Add to new team
-                                boolean addedMainDriver = team.addMainDriver(playerUUID);
+                                boolean addedMainDriver = league.addDriverToTeam(playerUUID, team.getName(), 1);
                                 if (addedMainDriver) {
                                     player.sendMessage(ChatColor.GREEN + "You joined team " + team.getName() + "!");
                                     String owner = team.getOwner();
@@ -619,7 +770,7 @@ public class leagueCommand implements CommandExecutor {
                                     }
 
                                 } else {
-                                    boolean addedReserveDriver = team.addReserveDriver(playerUUID);
+                                    boolean addedReserveDriver = team.addDriver(playerUUID, 99);
                                     if (addedReserveDriver){
                                         player.sendMessage(ChatColor.GREEN + "You joined team " + team.getName() + "!");
                                         String owner = team.getOwner();
@@ -675,6 +826,18 @@ public class leagueCommand implements CommandExecutor {
                                 if (ownerPlayer != null && ownerPlayer.isOnline()) {
                                     ownerPlayer.sendMessage(ChatColor.RED + player.getName() + " declined the invite to join your team " + teamName + ".");
                                 }
+                            }
+
+                            case "leave" ->{
+                                if (args.length < 4) {
+                                    player.sendMessage("Usage: /league <leagueName> team leave");
+                                    return true;
+                                }
+
+                                Team team = league.getTeamByDriver(sender.getName());
+                                team.removeMember(((Player) sender).getName());
+
+                                player.sendMessage("you have left the team " + team.getName());
                             }
 
                             case "promote" -> {
@@ -734,7 +897,7 @@ public class leagueCommand implements CommandExecutor {
                                     return true;
                                 }
 
-                                sendTeamDetails(player, team);
+                                sendTeamDetails(player, team, league);
                             }
 
                             // ===== Default: shorthand view =====
@@ -745,7 +908,7 @@ public class leagueCommand implements CommandExecutor {
                                     return true;
                                 }
 
-                                sendTeamDetails(player, team);
+                                sendTeamDetails(player, team, league);
                             }
                         }
                     }
@@ -808,9 +971,18 @@ public class leagueCommand implements CommandExecutor {
         }
 
         lines.add("§e/league <league> team remove <team> <player> §7- Remove member");
+        lines.add("§e/league <league> team invite <team> <player> §7- Invite driver");
+
+        // ===== MAIN_RESERVE Mode Commands =====
+        lines.add("§6--- MAIN_RESERVE Mode ---");
         lines.add("§e/league <league> team promote <team> <player> §7- Promote reserve");
         lines.add("§e/league <league> team demote <team> <player> §7- Demote main");
-        lines.add("§e/league <league> team invite <team> <player> §7- Invite driver");
+
+        // ===== PRIORITY/HIGHEST Mode Commands =====
+        lines.add("§6--- PRIORITY/HIGHEST Mode ---");
+        lines.add("§e/league <league> team setpriority <team> <player> <pos>");
+        lines.add("§e/league <league> team removepriority <team> <player>");
+        lines.add("§e/league <league> team swap <team> <player1> <player2>");
 
         // ===== Holograms =====
         if (isAdmin) {
@@ -825,29 +997,55 @@ public class leagueCommand implements CommandExecutor {
     }
 
 
-    private void sendTeamDetails(Player player, Team team) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("=== ").append(team.getName()).append(" ===\n");
-        sb.append("Color: #").append(team.getColor()).append("\n");
+    private void sendTeamDetails(Player player, Team team, League league) {
+        TeamMode teamMode = league.getTeamMode();
 
-        sb.append("Main Drivers:\n");
-        for (String uuid : team.getMainDrivers()) {
-            OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
-            sb.append("- ").append(member.getName()).append("\n");
+        if (teamMode == TeamMode.MAIN_RESERVE){
+            StringBuilder sb = new StringBuilder();
+            sb.append("=== ").append(team.getName()).append(" ===\n");
+            sb.append("Color: #").append(team.getColor()).append("\n");
+
+            sb.append("Main Drivers:\n");
+            for (String uuid : team.getMainDrivers()) {
+                OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
+                sb.append("- ").append(member.getName()).append("\n");
+            }
+
+            sb.append("Reserve Drivers:\n");
+            for (String uuid : team.getReserveDrivers()) {
+                OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
+                sb.append("- ").append(member.getName()).append("\n");
+            }
+
+            if (team.getOwner() != null) {
+                OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(team.getOwner()));
+                sb.append("Owner: ").append(owner.getName()).append("\n");
+            }
+
+            player.sendMessage(sb.toString());
         }
+        else{
+            List<String> priorityDrivers = team.getPriorityDrivers();
+            int scoringCount = team.getCountedPrioDrivers();
 
-        sb.append("Reserve Drivers:\n");
-        for (String uuid : team.getReserveDrivers()) {
-            OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
-            sb.append("- ").append(member.getName()).append("\n");
+            player.sendMessage("§6=== " + team.getName() + " Roster ===");
+            player.sendMessage("§7Mode: " + teamMode + " (Top " + scoringCount + " score)");
+
+            if (priorityDrivers.isEmpty()) {
+                player.sendMessage("§cNo drivers on this team.");
+            }
+
+            for (int i = 0; i < priorityDrivers.size(); i++) {
+                String uuid = priorityDrivers.get(i);
+                OfflinePlayer driver = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
+                String name = driver.getName() != null ? driver.getName() : "Unknown";
+
+                String prefix = (i < scoringCount) ? "§a" : "§7";
+                String scoring = (i < scoringCount) ? " §e[SCORING]" : "";
+
+                player.sendMessage(prefix + (i + 1) + ". " + name + scoring);
+            }
         }
-
-        if (team.getOwner() != null) {
-            OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(team.getOwner()));
-            sb.append("Owner: ").append(owner.getName()).append("\n");
-        }
-
-        player.sendMessage(sb.toString());
     }
 
     private boolean createOrUpdateHolograms(League league, int page, Player player, String argument) {

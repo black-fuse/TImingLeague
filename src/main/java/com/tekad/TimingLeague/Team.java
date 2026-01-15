@@ -111,7 +111,14 @@ public class Team {
 
     public boolean addDriver(String uuid, int priority){
         return switch(league.getTeamMode()){
-            case MAIN_RESERVE -> addMainDriver(uuid);
+            case MAIN_RESERVE -> {
+                if (priority == 1){
+                    yield addMainDriver(uuid);
+                }
+                else {
+                    yield addReserveDriver(uuid);
+                }
+            }
             case PRIORITY -> addPriorityDriver(uuid, priority);
             case HIGHEST -> addPriorityDriver(uuid, priority);
         };
@@ -162,6 +169,17 @@ public class Team {
 
     public boolean isReserve(String uuid) {
         return reserveDrivers.contains(uuid);
+    }
+
+    public int getPriority(String uuid){
+        int n = 0;
+
+        for (String driver : priorityDrivers){
+            n++;
+            if (driver.equals(uuid)) break;
+        }
+
+        return n;
     }
 
     public boolean promoteToMain(String uuid) {

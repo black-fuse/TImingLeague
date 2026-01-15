@@ -125,7 +125,19 @@ public class League {
 
     public boolean addDriverToTeam(String uuid, String teamName, int priority){
         Team team = getTeam(teamName);
-        Boolean success = team.addDriver(uuid, priority);
+        Boolean success;
+        if (teamMode == TeamMode.HIGHEST || teamMode == TeamMode.PRIORITY){
+
+            success = team.addDriver(uuid, priority);
+
+        } else{
+            success = team.addMainDriver(uuid);
+
+            if (!success){
+                team.addReserveDriver(uuid);
+            }
+        }
+
         if (success){
             driversList.put(uuid, team);
         }

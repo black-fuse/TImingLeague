@@ -47,6 +47,8 @@ public class LeagueCommandCompleter implements TabCompleter {
                 completions.add("holo");
                 completions.add("points");
                 completions.add("teamPoints");
+                completions.add("teammode");
+                completions.add("teamconfig");
             }
         }
 
@@ -77,11 +79,13 @@ public class LeagueCommandCompleter implements TabCompleter {
                     completions.addAll(leagues.get(args[0]).getTeamsString());
                 } else if (sub.equals("updatewithheat")){
                     completions.add("<eventId>");
+                } else if (sub.equals("teammode")){
+                    completions.addAll(List.of("MAIN_RESERVE","PRIORITY","HIGHEST"));
                 }
             }
 
             if (sub.equals("team")) {
-                completions.addAll(List.of("create", "color", "add", "remove", "view","invite","accept", "decline", "promote", "demote"));
+                completions.addAll(List.of("create", "color", "add", "remove", "view","invite","accept", "decline", "promote", "demote", "leave", "setpriority", "removepriority", "roster"));
                 completions.addAll(leagues.get(args[0]).getTeamsString());
             } else if (sub.equals("standings")) {
                 completions.addAll(List.of("teams"));
@@ -99,7 +103,7 @@ public class LeagueCommandCompleter implements TabCompleter {
                     completions.add("<teamName>");
                 } else if (teamSub.equals("color") || teamSub.equals("setColor")) {
                     completions.addAll(league.getTeamsString());
-                } else if (teamSub.equals("add") || teamSub.equals("remove") || teamSub.equals("view") || teamSub.equals("setName")) {
+                } else if (teamSub.equals("add") || teamSub.equals("remove") || teamSub.equals("view") || teamSub.equals("setName") || teamSub.equals("roster")) {
                     completions.addAll(league.getTeamsString());
                 }
                 else if (teamSub.equals("invite") || teamSub.equals("accept") || teamSub.equals("decline") || teamSub.equals("promote") || teamSub.equals("demote")) {

@@ -94,14 +94,32 @@ public class DatabaseManager {
             }
         }
 
+        if (!columnExists(connection, "leagues", "teamMaxSize")) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(
+                        "ALTER TABLE leagues ADD COLUMN teamMaxSize INTEGER DEFAULT 0"
+                );
+            }
+        }
+
+        if (!columnExists(connection, "leagues", "teamScoringCount")) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(
+                        "ALTER TABLE leagues ADD COLUMN teamScoringCount INTEGER DEFAULT 0"
+                );
+            }
+        }
+
         connection.setAutoCommit(false); // start transaction
         try {
             // 1. Save league info
             try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode) VALUES (?, ?, ?)")) {
+                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode, teamMaxSize, teamScoringCount) VALUES (?, ?, ?, ?, ?)")) {
                 ps.setString(1, league.getName());
                 ps.setInt(2, league.getPredictedDriverCount());
                 ps.setString(3, league.getTeamMode().name());
+                ps.setInt(4, league.getTeamMaxSize());
+                ps.setInt(5, league.getTeamScoringCount());
                 ps.executeUpdate();
             }
 
@@ -150,6 +168,7 @@ public class DatabaseManager {
                     String role = "none";
                     if (team.isMain(uuid)) role = "main";
                     else if (team.isReserve(uuid)) role = "reserve";
+                    else role = team.getPriority(uuid) + "";
 
                     driverStmt.setString(1, league.getName());
                     driverStmt.setString(2, uuid);
@@ -333,6 +352,19 @@ public class DatabaseManager {
         }
         league.setTeamMode(teamMode);
 
+        int teamMaxDrivers;
+        int teamScoringCount;
+        try {
+            teamMaxDrivers = leagueResult.getInt("teamMaxSize");
+            teamScoringCount = leagueResult.getInt("teamScoringCount");
+        } catch (Exception e){
+            teamMaxDrivers = 4;
+            teamScoringCount = 2;
+        }
+
+        league.setTeamMaxSize(teamMaxDrivers);
+        league.setTeamScoringCount(teamScoringCount);
+
         leagueStmt.close();
 
         // Load teams
@@ -384,6 +416,12 @@ public class DatabaseManager {
                 team.addMainDriver(uuid);
             } else if ("reserve".equalsIgnoreCase(role)) {
                 team.addReserveDriver(uuid);
+            } else {
+                try{
+                    team.addPriorityDriver(uuid, Integer.parseInt(role));
+                } catch (NumberFormatException ignored){
+
+                }
             }
 
             league.setDriverPoints(uuid, points);
