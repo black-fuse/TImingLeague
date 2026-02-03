@@ -70,7 +70,7 @@ public class LeagueCommandCompleter implements TabCompleter {
                 } else if (sub.equals("holo")) {
                     completions.addAll(List.of("driver", "team", "update", "deleteClosest"));
                 } else if (sub.equals("scoring")) {
-                    completions.addAll(List.of("fc1", "fc2", "default"));
+                    completions.addAll(List.of("fc1", "fc2", "default", "WIBRS", "IEC", "IECOpener", "IECDouble"));
                 } else if (sub.equals("points")) {
                     Bukkit.getOnlinePlayers().forEach(p -> {
                         if (p.getName() != null) completions.add(p.getName());

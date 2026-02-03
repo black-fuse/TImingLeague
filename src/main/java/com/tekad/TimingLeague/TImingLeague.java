@@ -32,6 +32,7 @@ public final class TImingLeague extends JavaPlugin {
         try {
             db.connect();
             db.createTables();
+            db.migrate();
             leagueMap.putAll(db.loadAllLeagues());
             holograms.addAll(db.loadHolograms());
         } catch (SQLException e) {

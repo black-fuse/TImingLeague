@@ -1,10 +1,7 @@
 package com.tekad.TimingLeague.commands;
 
 import com.tekad.TimingLeague.*;
-import com.tekad.TimingLeague.ScoringSystems.BasicScoringSystem;
-import com.tekad.TimingLeague.ScoringSystems.FC1ScoringSystem;
-import com.tekad.TimingLeague.ScoringSystems.FC2ScoringSystem;
-import com.tekad.TimingLeague.ScoringSystems.ScoringSystem;
+import com.tekad.TimingLeague.ScoringSystems.*;
 import eu.decentsoftware.holograms.api.DHAPI;
 import me.makkuusen.timing.system.api.EventResultsAPI;
 import me.makkuusen.timing.system.api.event.HeatResult;
@@ -209,6 +206,14 @@ public class leagueCommand implements CommandExecutor {
                             league.setScoringSystem(new FC2ScoringSystem());
                         } else if (args[2].equalsIgnoreCase("default")) {
                             league.setScoringSystem(new BasicScoringSystem());
+                        } else if (args[2].equalsIgnoreCase("WIBRS")) {
+                            league.setScoringSystem(new WIBRSScoringSystem());
+                        } else if (args[2].equalsIgnoreCase("IEC")) {
+                            league.setScoringSystem(new IECScoringSystem());
+                        }else if (args[2].equalsIgnoreCase("IECDouble")) {
+                            league.setScoringSystem(new IECDouble());
+                        } else if (args[2].equalsIgnoreCase("IECOpener")) {
+                            league.setScoringSystem(new IECOpenerSystem());
                         } else {
                             player.sendMessage("not a valid scoring system");
                             player.sendMessage("Current scoring system: " + league.getScoringSystem().toString());

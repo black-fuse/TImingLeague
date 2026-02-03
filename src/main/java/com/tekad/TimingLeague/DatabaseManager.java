@@ -48,6 +48,7 @@ public class DatabaseManager {
                         team TEXT,
                         role TEXT,  -- 'main', 'reserve', or 'none'
                         points INTEGER,
+                        PRIMARY KEY (leagueName, uuid),
                         FOREIGN KEY (leagueName) REFERENCES leagues(name),
                         FOREIGN KEY (leagueName, team) REFERENCES teams(leagueName, name)
                     );
@@ -85,8 +86,17 @@ public class DatabaseManager {
         return false;
     }
 
-    public void saveLeague(League league) throws SQLException {
+    public void migrate() throws SQLException {
+        Bukkit.getLogger().info("[TimingLeague] Running database migrations...");
+
+        try (Statement stmt = connection.createStatement()) {
+            // Ensure foreign keys are enforced
+            stmt.execute("PRAGMA foreign_keys = ON");
+        }
+
+        // --- leagues table migrations ---
         if (!columnExists(connection, "leagues", "teamMode")) {
+            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding teamMode");
             try (Statement stmt = connection.createStatement()) {
                 stmt.executeUpdate(
                         "ALTER TABLE leagues ADD COLUMN teamMode TEXT DEFAULT 'MAIN_RESERVE'"
@@ -95,6 +105,7 @@ public class DatabaseManager {
         }
 
         if (!columnExists(connection, "leagues", "teamMaxSize")) {
+            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding teamMaxSize");
             try (Statement stmt = connection.createStatement()) {
                 stmt.executeUpdate(
                         "ALTER TABLE leagues ADD COLUMN teamMaxSize INTEGER DEFAULT 0"
@@ -103,6 +114,7 @@ public class DatabaseManager {
         }
 
         if (!columnExists(connection, "leagues", "teamScoringCount")) {
+            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding teamScoringCount");
             try (Statement stmt = connection.createStatement()) {
                 stmt.executeUpdate(
                         "ALTER TABLE leagues ADD COLUMN teamScoringCount INTEGER DEFAULT 0"
@@ -110,11 +122,20 @@ public class DatabaseManager {
             }
         }
 
-        connection.setAutoCommit(false); // start transaction
+        Bukkit.getLogger().info("[TimingLeague] Database migrations complete.");
+    }
+
+    public void saveLeague(League league) throws SQLException {
+        log("Saving league: " + league.getName());
+
+        connection.setAutoCommit(false);
+        log("Transaction started for league: " + league.getName());
+
         try {
-            // 1. Save league info
+            log("Upserting league row");
             try (PreparedStatement ps = connection.prepareStatement(
                     "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode, teamMaxSize, teamScoringCount) VALUES (?, ?, ?, ?, ?)")) {
+
                 ps.setString(1, league.getName());
                 ps.setInt(2, league.getPredictedDriverCount());
                 ps.setString(3, league.getTeamMode().name());
@@ -123,29 +144,30 @@ public class DatabaseManager {
                 ps.executeUpdate();
             }
 
-            // 2. Clear old teams, drivers, and calendar
-            try (PreparedStatement clearTeams = connection.prepareStatement("DELETE FROM teams WHERE leagueName = ?");
-                 PreparedStatement clearDrivers = connection.prepareStatement("DELETE FROM drivers WHERE leagueName = ?");
-                 PreparedStatement clearCalendar = connection.prepareStatement("DELETE FROM calendar WHERE leagueName = ?")) {
-
-                clearTeams.setString(1, league.getName());
-                clearTeams.executeUpdate();
+            log("Clearing teams, drivers, calendar for league");
+            try (PreparedStatement clearDrivers = connection.prepareStatement(
+                    "DELETE FROM drivers WHERE leagueName = ?");
+                 PreparedStatement clearTeams = connection.prepareStatement(
+                         "DELETE FROM teams WHERE leagueName = ?");
+                 PreparedStatement clearCalendar = connection.prepareStatement(
+                         "DELETE FROM calendar WHERE leagueName = ?")) {
 
                 clearDrivers.setString(1, league.getName());
-                clearDrivers.executeUpdate();
-
+                clearTeams.setString(1, league.getName());
                 clearCalendar.setString(1, league.getName());
+
+                clearDrivers.executeUpdate();
+                clearTeams.executeUpdate();
                 clearCalendar.executeUpdate();
             }
 
-            // 3. Save teams
-            Set<String> insertedTeams = new HashSet<>();
+
+            log("Saving " + league.getTeams().size() + " teams");
+
             try (PreparedStatement teamStmt = connection.prepareStatement(
                     "INSERT OR REPLACE INTO teams (leagueName, name, color, owner, points) VALUES (?, ?, ?, ?, ?)")) {
 
                 for (Team team : league.getTeams()) {
-                    if (!insertedTeams.add(team.getName())) continue; // skip duplicates
-
                     teamStmt.setString(1, league.getName());
                     teamStmt.setString(2, team.getName());
                     teamStmt.setString(3, team.getColor());
@@ -157,18 +179,21 @@ public class DatabaseManager {
                 teamStmt.executeBatch();
             }
 
-            // 4. Save drivers
+            log("Saving " + league.getDrivers().size() + " drivers");
+
             try (PreparedStatement driverStmt = connection.prepareStatement(
                     "INSERT INTO drivers (leagueName, uuid, team, role, points) VALUES (?, ?, ?, ?, ?)")) {
 
                 for (String uuid : league.getDrivers()) {
                     Team team = league.getTeamByDriver(uuid);
-                    if (team == null) continue; // skip drivers without a team
+                    if (team == null) {
+                        log("Skipping driver " + uuid + " (no team)");
+                        continue;
+                    }
 
-                    String role = "none";
-                    if (team.isMain(uuid)) role = "main";
-                    else if (team.isReserve(uuid)) role = "reserve";
-                    else role = team.getPriority(uuid) + "";
+                    String role = team.isMain(uuid) ? "main"
+                            : team.isReserve(uuid) ? "reserve"
+                            : String.valueOf(team.getPriority(uuid));
 
                     driverStmt.setString(1, league.getName());
                     driverStmt.setString(2, uuid);
@@ -181,7 +206,8 @@ public class DatabaseManager {
                 driverStmt.executeBatch();
             }
 
-            // 5. Save calendar
+            log("Saving calendar with " + league.getCalendar().size() + " events");
+
             try (PreparedStatement calendarStmt = connection.prepareStatement(
                     "INSERT INTO calendar (leagueName, eventName) VALUES (?, ?)")) {
 
@@ -194,12 +220,15 @@ public class DatabaseManager {
                 calendarStmt.executeBatch();
             }
 
-            connection.commit(); // commit transaction
+            connection.commit();
+            log("Transaction committed for league: " + league.getName());
+
         } catch (SQLException e) {
-            connection.rollback(); // rollback on error
+            log("ERROR saving league " + league.getName() + ", rolling back");
+            connection.rollback();
             throw e;
         } finally {
-            connection.setAutoCommit(true); // restore default
+            connection.setAutoCommit(true);
         }
     }
 
@@ -502,5 +531,9 @@ public class DatabaseManager {
         }
 
         connection.close();
+    }
+
+    private void log(String msg) {
+        Bukkit.getLogger().info("[TimingLeague] " + msg);
     }
 }
