@@ -3,6 +3,10 @@ package com.tekad.TimingLeague.commands.subcommands;
 import com.tekad.TimingLeague.League;
 import com.tekad.TimingLeague.Team;
 import com.tekad.TimingLeague.TeamMode;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -37,7 +41,7 @@ public class LeagueTeamCommands {
             case "color" -> { return handleColor(player, league, args); }
             case "add" -> { return handleAdd(player, league, args); }
             case "remove" -> { return handleRemove(player, league, args); }
-            case "roster", "view" -> { return handleRoster(player, league, args); }
+            case "roster", "view" -> { return handleRoster(player, league, leagueName, args); }
             case "setpriority" -> { return handleSetPriority(player, league, args); }
             case "removepriority" -> { return handleRemovePriority(player, league, args); }
             case "invite" -> { return handleInvite(player, league, leagueName, args); }
@@ -46,6 +50,7 @@ public class LeagueTeamCommands {
             case "leave" -> { return handleLeave(player, league, args); }
             case "promote" -> { return handlePromote(player, league, args); }
             case "demote" -> { return handleDemote(player, league, args); }
+            case "setowner" -> { return handleSetOwner(player, league, args); }
             default -> {
                 // Shorthand view
                 Team team = league.getTeam(args[2]);
@@ -53,7 +58,7 @@ public class LeagueTeamCommands {
                     player.sendMessage("Team not found: " + args[2]);
                     return true;
                 }
-                sendTeamDetails(player, team, league);
+                sendTeamDetails(player, team, league, leagueName);
                 return true;
             }
         }
@@ -181,7 +186,7 @@ public class LeagueTeamCommands {
         return true;
     }
 
-    private boolean handleRoster(Player player, League league, String[] args) {
+    private boolean handleRoster(Player player, League league, String leagueName, String[] args) {
         if (args.length < 4) {
             player.sendMessage("Usage: /league <league> team roster <teamName>");
             return true;
@@ -193,7 +198,7 @@ public class LeagueTeamCommands {
             return true;
         }
 
-        sendTeamDetails(player, team, league);
+        sendTeamDetails(player, team, league, leagueName);
         return true;
     }
 
@@ -489,32 +494,117 @@ public class LeagueTeamCommands {
         return true;
     }
 
-    public static void sendTeamDetails(Player player, Team team, League league) {
+    private boolean handleSetOwner(Player player, League league, String[] args) {
+        if (args.length < 5) {
+            player.sendMessage(ChatColor.RED + "Usage: /league <league> team setowner <team> <player>");
+            return true;
+        }
+
+        String teamName = args[3];
+        String newOwnerName = args[4];
+
+        Team team = league.getTeam(teamName);
+        if (team == null) {
+            player.sendMessage(ChatColor.RED + "Team not found: " + teamName);
+            return true;
+        }
+
+        // Check permissions: admin OR current owner
+        boolean isAdmin = player.hasPermission("timingleague.admin");
+        boolean isCurrentOwner = team.getOwner() != null && team.getOwner().equals(player.getUniqueId().toString());
+
+        if (!isAdmin && !isCurrentOwner) {
+            player.sendMessage(ChatColor.RED + "You do not have permission to change team ownership.");
+            return true;
+        }
+
+        OfflinePlayer newOwner = Bukkit.getOfflinePlayer(newOwnerName);
+        String newOwnerUUID = newOwner.getUniqueId().toString();
+
+        // Check if new owner is already on a different team
+        for (Team t : league.getTeams()) {
+            if (t.isMember(newOwnerUUID) && !t.getName().equals(teamName)) {
+                player.sendMessage(ChatColor.RED + newOwnerName + " is already on another team (" + t.getName() + ").");
+                return true;
+            }
+        }
+
+        team.setOwner(newOwnerUUID);
+        player.sendMessage(ChatColor.GREEN + "Team ownership transferred to " + newOwnerName);
+
+        // Notify new owner if online
+        if (newOwner.isOnline()) {
+            newOwner.getPlayer().sendMessage(ChatColor.YELLOW + "You are now the owner of team " + teamName + "!");
+        }
+
+        return true;
+    }
+
+    public static void sendTeamDetails(Player player, Team team, League league, String leagueName) {
         TeamMode teamMode = league.getTeamMode();
+        boolean isOwner = team.getOwner() != null && team.getOwner().equals(player.getUniqueId().toString());
 
         if (teamMode == TeamMode.MAIN_RESERVE) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("=== ").append(team.getName()).append(" ===\n");
-            sb.append("Color: #").append(team.getColor()).append("\n");
-
-            sb.append("Main Drivers:\n");
-            for (String uuid : team.getMainDrivers()) {
+            String teamColor = getTeamColorCode(team.getColor());
+            
+            player.sendMessage(teamColor + "---" + team.getName() + "---");
+            player.sendMessage("§7Color: #" + team.getColor());
+            
+            // Main Drivers Section
+            Set<String> mainDrivers = team.getMainDrivers();
+            player.sendMessage(teamColor + "Main Drivers: §7(" + mainDrivers.size() + "/" + team.getMaxMains() + ")");
+            
+            for (String uuid : mainDrivers) {
                 OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
-                sb.append("- ").append(member.getName()).append("\n");
+                String name = member.getName() != null ? member.getName() : "Unknown";
+                
+                if (isOwner) {
+                    Component line = Component.text("- " + name + " ", NamedTextColor.WHITE)
+                            .append(Component.text("[-]", NamedTextColor.RED)
+                                    .clickEvent(ClickEvent.runCommand("/league " + leagueName + " team remove " + team.getName() + " " + name)));
+                    player.sendMessage(line);
+                } else {
+                    player.sendMessage("- " + name);
+                }
             }
-
-            sb.append("Reserve Drivers:\n");
-            for (String uuid : team.getReserveDrivers()) {
+            
+            if (isOwner && mainDrivers.size() < team.getMaxMains()) {
+                Component addButton = Component.text("[+] Add Main Driver", NamedTextColor.GREEN)
+                        .clickEvent(ClickEvent.suggestCommand("/league " + leagueName + " team invite " + team.getName() + " "));
+                player.sendMessage(addButton);
+            }
+            
+            player.sendMessage(""); // Empty line
+            
+            // Reserve Drivers Section
+            Set<String> reserveDrivers = team.getReserveDrivers();
+            player.sendMessage(teamColor + "Reserve Drivers: §7(" + reserveDrivers.size() + "/" + team.getMaxReserves() + ")");
+            
+            for (String uuid : reserveDrivers) {
                 OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
-                sb.append("- ").append(member.getName()).append("\n");
+                String name = member.getName() != null ? member.getName() : "Unknown";
+                
+                if (isOwner) {
+                    Component line = Component.text("- " + name + " ", NamedTextColor.WHITE)
+                            .append(Component.text("[-]", NamedTextColor.RED)
+                                    .clickEvent(ClickEvent.runCommand("/league " + leagueName + " team remove " + team.getName() + " " + name)));
+                    player.sendMessage(line);
+                } else {
+                    player.sendMessage("- " + name);
+                }
+            }
+            
+            if (isOwner && reserveDrivers.size() < team.getMaxReserves()) {
+                Component addButton = Component.text("[+] Add Reserve Driver", NamedTextColor.GREEN)
+                        .clickEvent(ClickEvent.suggestCommand("/league " + leagueName + " team invite " + team.getName() + " "));
+                player.sendMessage(addButton);
             }
 
             if (team.getOwner() != null) {
                 OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(team.getOwner()));
-                sb.append("Owner: ").append(owner.getName()).append("\n");
+                player.sendMessage("§7Owner: " + owner.getName());
             }
 
-            player.sendMessage(sb.toString());
         } else {
             List<String> priorityDrivers = team.getPriorityDrivers();
             int scoringCount = team.getCountedPrioDrivers();
@@ -537,6 +627,24 @@ public class LeagueTeamCommands {
                 player.sendMessage(prefix + (i + 1) + ". " + name + scoring);
             }
         }
+    }
+
+    private static String getTeamColorCode(String hexColor) {
+        // Normalize input
+        String color = hexColor.startsWith("#") ? hexColor : "#" + hexColor;
+        
+        // Validate format
+        if (!color.matches("^#[0-9a-fA-F]{6}$")) {
+            return "§f"; // fallback to white
+        }
+
+        // Convert to §x§r§r§g§g§b§b format
+        StringBuilder colored = new StringBuilder("§x");
+        for (char c : color.substring(1).toCharArray()) {
+            colored.append("§").append(c);
+        }
+
+        return colored.toString();
     }
 
     private String getColoredSquare(String colorInput) {

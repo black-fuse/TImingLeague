@@ -85,7 +85,7 @@ public class LeagueCommandCompleter implements TabCompleter {
             }
 
             if (sub.equals("team")) {
-                completions.addAll(List.of("create", "color", "add", "remove", "view","invite","accept", "decline", "promote", "demote", "leave", "setpriority", "removepriority", "roster"));
+                completions.addAll(List.of("create", "color", "add", "remove", "view","invite","accept", "decline", "promote", "demote", "leave", "setpriority", "removepriority", "roster", "setowner"));
                 completions.addAll(leagues.get(args[0]).getTeamsString());
             } else if (sub.equals("standings")) {
                 completions.addAll(List.of("teams"));
@@ -103,7 +103,7 @@ public class LeagueCommandCompleter implements TabCompleter {
                     completions.add("<teamName>");
                 } else if (teamSub.equals("color") || teamSub.equals("setColor")) {
                     completions.addAll(league.getTeamsString());
-                } else if (teamSub.equals("add") || teamSub.equals("remove") || teamSub.equals("view") || teamSub.equals("setName") || teamSub.equals("roster")) {
+                } else if (teamSub.equals("add") || teamSub.equals("remove") || teamSub.equals("view") || teamSub.equals("setName") || teamSub.equals("roster") || teamSub.equals("setowner")) {
                     completions.addAll(league.getTeamsString());
                 }
                 else if (teamSub.equals("invite") || teamSub.equals("accept") || teamSub.equals("decline") || teamSub.equals("promote") || teamSub.equals("demote")) {
@@ -135,12 +135,7 @@ public class LeagueCommandCompleter implements TabCompleter {
             else if (teamSub.equals("setName")) {
                 completions.add("<newTeamName>");
             }
-            else if (teamSub.equals("invite")) {
-                Bukkit.getOnlinePlayers().forEach(p -> {
-                    if (p.getName() != null) completions.add(p.getName());
-                });
-            }
-            else if (teamSub.equals("add")) {
+            else if (teamSub.equals("invite") || teamSub.equals("setowner") || teamSub.equals("promote") || teamSub.equals("demote")) {
                 Bukkit.getOnlinePlayers().forEach(p -> {
                     if (p.getName() != null) completions.add(p.getName());
                 });

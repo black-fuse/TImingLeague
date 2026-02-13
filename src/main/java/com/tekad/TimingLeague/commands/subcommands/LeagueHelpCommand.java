@@ -48,6 +48,7 @@ public class LeagueHelpCommand {
         lines.add("§e/league <league> team <team> §7- Shorthand view");
         lines.add("§e/league <league> team accept <team> §7- Accept invite");
         lines.add("§e/league <league> team decline <team> §7- Decline invite");
+        lines.add("§e/league <league> team setowner <team> <player> §7- Transfer ownership");
 
         if (isAdmin) {
             lines.add("§e/league <league> team create <team> [hex] §7- Create team");
