@@ -1,5 +1,8 @@
 package com.tekad.TimingLeague;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -21,8 +24,10 @@ public class Team {
     private String teamOwner;
     private int points;
 
-    private final int maxMains = 2;
-    private final int maxReserves = 2;
+    @Getter @Setter
+    private int maxMains = 2;
+    @Getter @Setter
+    private int maxReserves = 2;
 
     private int countedPrioDrivers = 2;
 
