@@ -122,6 +122,15 @@ public class DatabaseManager {
             }
         }
 
+        if (!columnExists(connection, "leagues", "customScalePoints")) {
+            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding customScalePoints");
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(
+                        "ALTER TABLE leagues ADD COLUMN customScalePoints TEXT DEFAULT NULL"
+                );
+            }
+        }
+
         Bukkit.getLogger().info("[TimingLeague] Database migrations complete.");
     }
 
@@ -133,14 +142,26 @@ public class DatabaseManager {
 
         try {
             log("Upserting league row");
+            
+            // Serialize custom scale to JSON
+            String customScaleJson = null;
+            try {
+                if (league.hasCustomScale()) {
+                    customScaleJson = serializeCustomScale(league.getCustomScalePoints());
+                }
+            } catch (Exception e) {
+                log("WARNING: Failed to serialize custom scale for " + league.getName() + ", continuing without it");
+            }
+            
             try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode, teamMaxSize, teamScoringCount) VALUES (?, ?, ?, ?, ?)")) {
+                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode, teamMaxSize, teamScoringCount, customScalePoints) VALUES (?, ?, ?, ?, ?, ?)")) {
 
                 ps.setString(1, league.getName());
                 ps.setInt(2, league.getPredictedDriverCount());
                 ps.setString(3, league.getTeamMode().name());
                 ps.setInt(4, league.getTeamMaxSize());
                 ps.setInt(5, league.getTeamScoringCount());
+                ps.setString(6, customScaleJson);
                 ps.executeUpdate();
             }
 
@@ -393,6 +414,21 @@ public class DatabaseManager {
 
         league.setTeamMaxSize(teamMaxDrivers);
         league.setTeamScoringCount(teamScoringCount);
+        
+        // Load custom scale (with heavy fallback)
+        try {
+            String customScaleJson = leagueResult.getString("customScalePoints");
+            if (customScaleJson != null && !customScaleJson.isEmpty()) {
+                Map<Integer, Integer> customScale = deserializeCustomScale(customScaleJson);
+                if (customScale != null && !customScale.isEmpty()) {
+                    for (Map.Entry<Integer, Integer> entry : customScale.entrySet()) {
+                        league.setCustomScalePoint(entry.getKey(), entry.getValue());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log("WARNING: Failed to load custom scale for " + name + ", continuing without it");
+        }
 
         leagueStmt.close();
 
@@ -535,5 +571,75 @@ public class DatabaseManager {
 
     private void log(String msg) {
         Bukkit.getLogger().info("[TimingLeague] " + msg);
+    }
+    
+    // Simple JSON serialization for custom scale (fallback-heavy)
+    private String serializeCustomScale(Map<Integer, Integer> scale) {
+        if (scale == null || scale.isEmpty()) {
+            return null;
+        }
+        
+        try {
+            StringBuilder json = new StringBuilder("{");
+            boolean first = true;
+            
+            for (Map.Entry<Integer, Integer> entry : scale.entrySet()) {
+                if (!first) json.append(",");
+                json.append("\"").append(entry.getKey()).append("\":").append(entry.getValue());
+                first = false;
+            }
+            
+            json.append("}");
+            return json.toString();
+        } catch (Exception e) {
+            log("ERROR: Failed to serialize custom scale");
+            return null;
+        }
+    }
+    
+    private Map<Integer, Integer> deserializeCustomScale(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return new HashMap<>();
+        }
+        
+        Map<Integer, Integer> result = new HashMap<>();
+        
+        try {
+            // Remove { and }
+            String content = json.trim();
+            if (content.startsWith("{")) content = content.substring(1);
+            if (content.endsWith("}")) content = content.substring(0, content.length() - 1);
+            
+            if (content.trim().isEmpty()) {
+                return result;
+            }
+            
+            // Split by comma
+            String[] pairs = content.split(",");
+            
+            for (String pair : pairs) {
+                // Split by colon
+                String[] parts = pair.split(":");
+                if (parts.length != 2) continue;
+                
+                try {
+                    // Remove quotes from key
+                    String keyStr = parts[0].trim().replace("\"", "");
+                    int key = Integer.parseInt(keyStr);
+                    int value = Integer.parseInt(parts[1].trim());
+                    
+                    if (key > 0) {
+                        result.put(key, value);
+                    }
+                } catch (NumberFormatException e) {
+                    log("WARNING: Skipping invalid custom scale entry: " + pair);
+                }
+            }
+        } catch (Exception e) {
+            log("ERROR: Failed to deserialize custom scale, returning empty map");
+            return new HashMap<>();
+        }
+        
+        return result;
     }
 }

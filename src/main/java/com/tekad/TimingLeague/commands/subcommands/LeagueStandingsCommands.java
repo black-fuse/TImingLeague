@@ -1,6 +1,7 @@
 package com.tekad.TimingLeague.commands.subcommands;
 
 import com.tekad.TimingLeague.League;
+import me.makkuusen.timing.system.theme.Theme;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -16,6 +17,7 @@ import java.util.UUID;
 public class LeagueStandingsCommands {
 
     public static boolean handleStandings(Player player, League league, String leagueName, String[] args) {
+        Theme theme = Theme.getTheme(player);
         int page = 1;
         boolean showTeams = false;
 
@@ -48,11 +50,20 @@ public class LeagueStandingsCommands {
             }
 
             int totalPages = (int) Math.ceil((double) standings.size() / pageSize);
-            player.sendMessage("§6=== Team Standings (Page " + page + "/" + totalPages + ") ===");
+            
+            Component title = theme.getTitleLine(
+                Component.text("Team Standings ").color(theme.getSecondary())
+                    .append(Component.text("(Page " + page + "/" + totalPages + ")").color(theme.getPrimary()))
+            );
+            player.sendMessage(title);
 
             for (int i = start; i < Math.min(start + pageSize, standings.size()); i++) {
                 var entry = standings.get(i);
-                player.sendMessage((i + 1) + ". " + entry.getKey() + " - " + entry.getValue() + " pts");
+                Component line = Component.text((i + 1) + ". ").color(theme.getPrimary())
+                        .append(Component.text(entry.getKey()).color(theme.getSecondary()))
+                        .append(theme.hyphen())
+                        .append(Component.text(entry.getValue() + " pts").color(theme.getAward()));
+                player.sendMessage(line);
             }
 
             // Clickable navigation
@@ -69,12 +80,21 @@ public class LeagueStandingsCommands {
             }
 
             int totalPages = (int) Math.ceil((double) standings.size() / pageSize);
-            player.sendMessage("§6=== Driver Standings (Page " + page + "/" + totalPages + ") ===");
+            
+            Component title = theme.getTitleLine(
+                Component.text("Driver Standings ").color(theme.getSecondary())
+                    .append(Component.text("(Page " + page + "/" + totalPages + ")").color(theme.getPrimary()))
+            );
+            player.sendMessage(title);
 
             for (int i = start; i < Math.min(start + pageSize, standings.size()); i++) {
                 var entry = standings.get(i);
                 OfflinePlayer p = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey()));
-                player.sendMessage((i + 1) + ". " + p.getName() + " - " + entry.getValue() + " pts");
+                Component line = Component.text((i + 1) + ". ").color(theme.getPrimary())
+                        .append(Component.text(p.getName()).color(theme.getSecondary()))
+                        .append(theme.hyphen())
+                        .append(Component.text(entry.getValue() + " pts").color(theme.getAward()));
+                player.sendMessage(line);
             }
 
             // Clickable navigation
@@ -85,32 +105,29 @@ public class LeagueStandingsCommands {
     }
 
     private static void sendNavigationButtons(Player player, String leagueName, int currentPage, int totalPages, boolean isTeams) {
+        Theme theme = Theme.getTheme(player);
         Component navigation = Component.empty();
 
         // Previous button
         if (currentPage > 1) {
             String prevCommand = "/league " + leagueName + " standings " + (isTeams ? "teams " : "") + (currentPage - 1);
-            Component prevButton = Component.text("[< Previous]")
-                    .color(NamedTextColor.GREEN)
-                    .decorate(TextDecoration.BOLD)
+            Component prevButton = Component.text("<<< ").color(theme.getButton())
                     .clickEvent(ClickEvent.runCommand(prevCommand));
             navigation = navigation.append(prevButton);
         } else {
-            navigation = navigation.append(Component.text("[< Previous]").color(NamedTextColor.DARK_GRAY));
+            navigation = navigation.append(Component.text("<<< ").color(theme.getPrimary()));
         }
 
-        navigation = navigation.append(Component.text("  "));
+        navigation = navigation.append(Component.text("Page " + currentPage + " of " + totalPages).color(theme.getSecondary()));
 
         // Next button
         if (currentPage < totalPages) {
             String nextCommand = "/league " + leagueName + " standings " + (isTeams ? "teams " : "") + (currentPage + 1);
-            Component nextButton = Component.text("[Next >]")
-                    .color(NamedTextColor.GREEN)
-                    .decorate(TextDecoration.BOLD)
+            Component nextButton = Component.text(" >>>").color(theme.getButton())
                     .clickEvent(ClickEvent.runCommand(nextCommand));
             navigation = navigation.append(nextButton);
         } else {
-            navigation = navigation.append(Component.text("[Next >]").color(NamedTextColor.DARK_GRAY));
+            navigation = navigation.append(Component.text(" >>>").color(theme.getPrimary()));
         }
 
         player.sendMessage(navigation);

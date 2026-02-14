@@ -3,6 +3,7 @@ package com.tekad.TimingLeague.commands.subcommands;
 import com.tekad.TimingLeague.League;
 import com.tekad.TimingLeague.Team;
 import com.tekad.TimingLeague.TeamMode;
+import me.makkuusen.timing.system.theme.Theme;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -541,79 +542,90 @@ public class LeagueTeamCommands {
     }
 
     public static void sendTeamDetails(Player player, Team team, League league, String leagueName) {
+        Theme theme = Theme.getTheme(player);
         TeamMode teamMode = league.getTeamMode();
         boolean isOwner = team.getOwner() != null && team.getOwner().equals(player.getUniqueId().toString());
 
         if (teamMode == TeamMode.MAIN_RESERVE) {
             String teamColor = getTeamColorCode(team.getColor());
             
-            player.sendMessage(teamColor + "---" + team.getName() + "---");
-            player.sendMessage("§7Color: #" + team.getColor());
+            // Title with team color
+            Component title = Component.text("---").color(theme.getPrimary())
+                    .append(Component.text(team.getName()))
+                    .append(Component.text("---").color(theme.getPrimary()));
+            player.sendMessage(title.replaceText(builder -> builder.matchLiteral(team.getName()).replacement(Component.text(team.getName()).color(theme.getSecondary()))));
+            
+            player.sendMessage(Component.text("Color: ").color(theme.getPrimary()).append(Component.text("#" + team.getColor()).color(theme.getSecondary())));
             
             // Main Drivers Section
             Set<String> mainDrivers = team.getMainDrivers();
-            player.sendMessage(teamColor + "Main Drivers: §7(" + mainDrivers.size() + "/" + team.getMaxMains() + ")");
+            Component mainHeader = Component.text("Main Drivers: ", theme.getSecondary())
+                    .append(Component.text("(" + mainDrivers.size() + "/" + team.getMaxMains() + ")").color(theme.getPrimary()));
+            player.sendMessage(mainHeader.replaceText(builder -> builder.matchLiteral("Main Drivers:").replacement(Component.text("Main Drivers:").style(style -> style.color(theme.getSecondary())))));
             
             for (String uuid : mainDrivers) {
                 OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
                 String name = member.getName() != null ? member.getName() : "Unknown";
                 
                 if (isOwner) {
-                    Component line = Component.text("- " + name + " ", NamedTextColor.WHITE)
-                            .append(Component.text("[-]", NamedTextColor.RED)
+                    Component line = Component.text("- " + name + " ").color(theme.getSecondary())
+                            .append(theme.getRemoveButton()
                                     .clickEvent(ClickEvent.runCommand("/league " + leagueName + " team remove " + team.getName() + " " + name)));
                     player.sendMessage(line);
                 } else {
-                    player.sendMessage("- " + name);
+                    player.sendMessage(Component.text("- " + name).color(theme.getSecondary()));
                 }
             }
             
             if (isOwner && mainDrivers.size() < team.getMaxMains()) {
-                Component addButton = Component.text("[+] Add Main Driver", NamedTextColor.GREEN)
+                Component addButton = theme.getAddButton(Component.text("Add Main Driver"))
                         .clickEvent(ClickEvent.suggestCommand("/league " + leagueName + " team invite " + team.getName() + " "));
                 player.sendMessage(addButton);
             }
             
-            player.sendMessage(""); // Empty line
+            player.sendMessage(Component.empty());
             
             // Reserve Drivers Section
             Set<String> reserveDrivers = team.getReserveDrivers();
-            player.sendMessage(teamColor + "Reserve Drivers: §7(" + reserveDrivers.size() + "/" + team.getMaxReserves() + ")");
+            Component reserveHeader = Component.text("Reserve Drivers: ", theme.getSecondary())
+                    .append(Component.text("(" + reserveDrivers.size() + "/" + team.getMaxReserves() + ")").color(theme.getPrimary()));
+            player.sendMessage(reserveHeader.replaceText(builder -> builder.matchLiteral("Reserve Drivers:").replacement(Component.text("Reserve Drivers:").style(style -> style.color(theme.getSecondary())))));
             
             for (String uuid : reserveDrivers) {
                 OfflinePlayer member = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
                 String name = member.getName() != null ? member.getName() : "Unknown";
                 
                 if (isOwner) {
-                    Component line = Component.text("- " + name + " ", NamedTextColor.WHITE)
-                            .append(Component.text("[-]", NamedTextColor.RED)
+                    Component line = Component.text("- " + name + " ").color(theme.getSecondary())
+                            .append(theme.getRemoveButton()
                                     .clickEvent(ClickEvent.runCommand("/league " + leagueName + " team remove " + team.getName() + " " + name)));
                     player.sendMessage(line);
                 } else {
-                    player.sendMessage("- " + name);
+                    player.sendMessage(Component.text("- " + name).color(theme.getSecondary()));
                 }
             }
             
             if (isOwner && reserveDrivers.size() < team.getMaxReserves()) {
-                Component addButton = Component.text("[+] Add Reserve Driver", NamedTextColor.GREEN)
+                Component addButton = theme.getAddButton(Component.text("Add Reserve Driver"))
                         .clickEvent(ClickEvent.suggestCommand("/league " + leagueName + " team invite " + team.getName() + " "));
                 player.sendMessage(addButton);
             }
 
             if (team.getOwner() != null) {
                 OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(team.getOwner()));
-                player.sendMessage("§7Owner: " + owner.getName());
+                player.sendMessage(Component.text("Owner: ").color(theme.getPrimary()).append(Component.text(owner.getName()).color(theme.getSecondary())));
             }
 
         } else {
             List<String> priorityDrivers = team.getPriorityDrivers();
             int scoringCount = team.getCountedPrioDrivers();
 
-            player.sendMessage("§6=== " + team.getName() + " Roster ===");
-            player.sendMessage("§7Mode: " + teamMode + " (Top " + scoringCount + " score)");
+            player.sendMessage(theme.getTitleLine(Component.text(team.getName() + " Roster").color(theme.getSecondary())));
+            player.sendMessage(Component.text("Mode: ").color(theme.getPrimary())
+                    .append(Component.text(teamMode + " (Top " + scoringCount + " score)").color(theme.getSecondary())));
 
             if (priorityDrivers.isEmpty()) {
-                player.sendMessage("§cNo drivers on this team.");
+                player.sendMessage(theme.error("No drivers on this team."));
             }
 
             for (int i = 0; i < priorityDrivers.size(); i++) {
@@ -621,10 +633,14 @@ public class LeagueTeamCommands {
                 OfflinePlayer driver = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
                 String name = driver.getName() != null ? driver.getName() : "Unknown";
 
-                String prefix = (i < scoringCount) ? "§a" : "§7";
-                String scoring = (i < scoringCount) ? " §e[SCORING]" : "";
+                Component line = Component.text((i + 1) + ". ").color(theme.getPrimary())
+                        .append(Component.text(name).color(theme.getSecondary()));
 
-                player.sendMessage(prefix + (i + 1) + ". " + name + scoring);
+                if (i < scoringCount) {
+                    line = line.append(Component.text(" [SCORING]").color(theme.getAward()));
+                }
+
+                player.sendMessage(line);
             }
         }
     }

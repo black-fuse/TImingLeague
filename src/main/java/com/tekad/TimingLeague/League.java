@@ -28,6 +28,10 @@ public class League {
     private final Map<String, Team> driversList = new HashMap<>();
 
     private StandingsUpdater updater = new DefaultStandingsUpdater();
+    
+    // Custom scoring scale: position (1-indexed) -> points
+    @Getter
+    private final Map<Integer, Integer> customScalePoints = new HashMap<>();
 
     @Getter @Setter
     private TeamMode teamMode = TeamMode.MAIN_RESERVE;
@@ -185,5 +189,20 @@ public class League {
 
     public Map<String, Integer> getTeamStandings() {
         return  teamStandings;
+    }
+    
+    // Custom scale management
+    public void setCustomScalePoint(int position, int points) {
+        if (position > 0) {
+            customScalePoints.put(position, points);
+        }
+    }
+    
+    public void clearCustomScale() {
+        customScalePoints.clear();
+    }
+    
+    public boolean hasCustomScale() {
+        return !customScalePoints.isEmpty();
     }
 }

@@ -39,6 +39,11 @@ public class LeagueHelpCommand {
             lines.add("§e/league <league> predictedDrivers [number] §7- Set/view predicted drivers");
             lines.add("§e/league <league> points <player> <+/-num> §7- Adjust driver points");
             lines.add("§e/league <league> teamPoints <team> <+/-num> §7- Adjust team points");
+            lines.add("§6--- Custom Point Scale ---");
+            lines.add("§e/league <league> customscale set <pos> <pts> §7- Set position points");
+            lines.add("§e/league <league> customscale list §7- View custom scale");
+            lines.add("§e/league <league> customscale use §7- Activate custom scale");
+            lines.add("§e/league <league> customscale clear §7- Clear custom scale");
         }
 
         // ===== Teams =====

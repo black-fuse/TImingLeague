@@ -142,6 +142,7 @@ public class leagueCommand implements CommandExecutor {
                     case "predicteddrivers" -> LeagueAdminCommands.handlePredictedDrivers(player, league, args);
                     case "teammode" -> LeagueAdminCommands.handleTeamMode(player, league, args);
                     case "teamconfig" -> LeagueAdminCommands.handleTeamConfig(player, league, args);
+                    case "customscale" -> LeagueCustomScaleCommands.handleCustomScale(player, league, args);
                     case "standings" -> LeagueStandingsCommands.handleStandings(player, league, leagueName, args);
                     case "calendar" -> LeagueStandingsCommands.handleCalendar(player, league);
                     case "holo" -> hologramCommands.handleHolo(player, league, args);

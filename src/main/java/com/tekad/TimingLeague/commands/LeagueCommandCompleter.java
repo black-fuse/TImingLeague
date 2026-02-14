@@ -49,6 +49,7 @@ public class LeagueCommandCompleter implements TabCompleter {
                 completions.add("teamPoints");
                 completions.add("teammode");
                 completions.add("teamconfig");
+                completions.add("customscale");
             }
         }
 
@@ -71,6 +72,8 @@ public class LeagueCommandCompleter implements TabCompleter {
                     completions.addAll(List.of("driver", "team", "update", "deleteClosest"));
                 } else if (sub.equals("scoring")) {
                     completions.addAll(List.of("fc1", "fc2", "default", "WIBRS", "IEC", "IECOpener", "IECDouble"));
+                } else if (sub.equals("customscale")) {
+                    completions.addAll(List.of("set", "list", "use", "clear"));
                 } else if (sub.equals("points")) {
                     Bukkit.getOnlinePlayers().forEach(p -> {
                         if (p.getName() != null) completions.add(p.getName());
