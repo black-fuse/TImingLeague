@@ -44,6 +44,7 @@ public class TimingSystemConfiguration {
     private final double copperPos;
     private boolean dynamicDiamondPosEnabled;
     private final List<DynamicPos> dynamicDiamondPoses = new ArrayList<>();
+    private int tuningEffect;
 
     private final Object databaseType;
 
@@ -74,6 +75,7 @@ public class TimingSystemConfiguration {
         drsMaxDelta = plugin.getConfig().getInt("drs.maxDelta", 1150);
         drsDuration = plugin.getConfig().getInt("drs.duration", 2000);
         drsForwardAccel = plugin.getConfig().getDouble("drs.forwardAccel", 0.06);
+        tuningEffect = plugin.getConfig().getInt("tuning.effect", 2);
         frostHexAddOnEnabled = plugin.getConfig().getBoolean("frosthexaddon.enabled");
         medalsAddOnEnabled = plugin.getConfig().getBoolean("medalsaddon.enabled");
         medalsShowNextMedal = plugin.getConfig().getBoolean("medalsaddon.showNextMedal");
@@ -146,6 +148,10 @@ public class TimingSystemConfiguration {
 
     public void setDrsForwardAccel(double value) {
         drsForwardAccel = value;
+    }
+
+    public void setTuningEffect(int value){
+        tuningEffect = value;
     }
 
     public <T extends TSDatabase & EventDatabase> T getDatabaseType() {
