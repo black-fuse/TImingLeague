@@ -67,15 +67,24 @@ public class LeagueTeamCommands {
 
     private boolean handleList(Player player, League league) {
         Set<Team> teamsList = league.getTeams();
+        String leagueName = league.getName();
+        Theme theme = Theme.getTheme(player);
         if (teamsList.isEmpty()) {
             player.sendMessage("§cThere are no teams in this league.");
             return true;
         }
 
-        StringBuilder toSend = new StringBuilder("§6== Teams List ==§r");
+        player.sendMessage("");
+        player.sendMessage(theme.getRefreshButton().clickEvent(ClickEvent.runCommand("/league " + leagueName))
+                .append(Component.space())
+                .append(theme.getTitleLine(Component.text(leagueName).color(theme.getSecondary())
+                        .append(Component.space())
+                )));
+
+        StringBuilder toSend = new StringBuilder();
         for (Team team : teamsList) {
             String square = getColoredSquare(team.getColor());
-            toSend.append("\n").append(square).append(" ").append(team.getName());
+            toSend.append(square).append(" ").append(team.getName()).append("\n");
         }
         player.sendMessage(toSend.toString());
         return true;
@@ -671,7 +680,7 @@ public class LeagueTeamCommands {
 
         // Validate format: must be exactly 7 characters and match hex pattern
         if (!colorInput.matches("^#[0-9a-fA-F]{6}$")) {
-            return "§7■§r"; // fallback gray square
+            return "§7§l§o||§r"; // fallback gray thick //
         }
 
         // Convert to §x§r§r§g§g§b§b format
@@ -680,6 +689,7 @@ public class LeagueTeamCommands {
             colored.append("§").append(c);
         }
 
-        return colored + "■§r";
+        // Apply bold + italic to pipes
+        return colored + "§l§o||§r";
     }
 }

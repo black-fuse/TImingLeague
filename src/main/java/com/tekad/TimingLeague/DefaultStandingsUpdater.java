@@ -11,37 +11,48 @@ import java.util.*;
 public class DefaultStandingsUpdater implements StandingsUpdater {
     @Override
     public void updateStandingsFromEvents(League league) {
+        // Clear existing point history and standings
+        league.clearPointHistory();
+        league.getDriverStandings().clear();
+        league.getTeamStandings().clear();
+
         Set<String> calendar = league.getCalendar();
-        Map<String, Team> driversList = league.getDriversList();
 
         for (String event : calendar){
             updateStandingsWithSingleEvent(event, league);
         }
+
+        // Apply mulligans and recalculate final standings
+        recalculateStandingsWithMulligans(league);
     }
 
     public void updateStandingsWithSingleEvent(String event, League league){
-        Set<String> calendar = league.getCalendar();
-        Map<String, Team> driversList = league.getDriversList();
-
         EventResult results = EventResultsAPI.getEventResult(event);
         if (results == null || results.getRounds() == null){
-            //keep for now
-            league = league;
+            return;
         }
 
-        assert results != null;
         for (RoundResult roundResult: results.getRounds()){
             for (HeatResult heat: roundResult.getHeatResults()){
-                updateStandingsWithHeat(heat, league);
-
+                // Only process FINAL heats (skip qualifiers)
+                if (isFinalHeat(heat)) {
+                    processHeatWithTracking(heat, event, league);
+                }
             }
         }
     }
 
-    public void updateStandingsWithHeat(HeatResult heat, League league) {
+    private boolean isFinalHeat(HeatResult heat) {
+        String heatName = heat.getName().toLowerCase();
+        return heatName.contains("f") && !heatName.contains("q");
+    }
+
+    public void processHeatWithTracking(HeatResult heat, String eventId, League league) {
         Map<String, Team> driversList = league.getDriversList();
         List<DriverResult> drivers = heat.getDriverResultList();
         int driverCount = drivers.size();
+        String source = "heat:" + eventId + ":" + heat.getName();
+        long timestamp = System.currentTimeMillis();
 
         // Award individual points to all drivers
         for (DriverResult driver : drivers) {
@@ -52,7 +63,10 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
             }
 
             int points = league.getScoringSystem().getPointsForPosition(driver.getPosition(), driverCount);
-            league.addPointsToDriver(driverUUID, points);
+            
+            // Track point entry
+            PointEntry entry = new PointEntry(source, eventId, points, timestamp);
+            league.addDriverPointEntry(driverUUID, entry);
         }
 
         // Handle team points
@@ -72,7 +86,8 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
 
                     if (result != null){
                         int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
-                        league.addPointsToTeam(team.getName(), points);
+                        PointEntry entry = new PointEntry(source, eventId, points, timestamp);
+                        league.addTeamPointEntry(team.getName(), entry);
                         scored++;
                     }
                 }
@@ -91,7 +106,8 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
                 for (DriverResult result : teamResults) {
                     int points = league.getScoringSystem()
                             .getPointsForPosition(result.getPosition(), driverCount);
-                    league.addPointsToTeam(team.getName(), points);
+                    PointEntry entry = new PointEntry(source, eventId, points, timestamp);
+                    league.addTeamPointEntry(team.getName(), entry);
                 }
             }
         }
@@ -111,7 +127,8 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
 
                     if (result != null) {
                         int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
-                        league.addPointsToTeam(team.getName(), points);
+                        PointEntry entry = new PointEntry(source, eventId, points, timestamp);
+                        league.addTeamPointEntry(team.getName(), entry);
                     } else {
                         missingMains++;
                     }
@@ -129,15 +146,14 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
 
                     if (result != null) {
                         int points = league.getScoringSystem().getPointsForPosition(result.getPosition(), driverCount);
-                        league.addPointsToTeam(team.getName(), points);
+                        PointEntry entry = new PointEntry(source, eventId, points, timestamp);
+                        league.addTeamPointEntry(team.getName(), entry);
                         filledReserves++;
                     }
                 }
             }
         }
     }
-
-
 
     public HeatResult getHeatResults(String event, String heatId) {
         // Validate heatId format (e.g., r1q2, r2f1)
@@ -180,6 +196,101 @@ public class DefaultStandingsUpdater implements StandingsUpdater {
         }
 
         return filteredHeats.get(heatIndex - 1); // again, zero-based indexing
+    }
+
+    private void recalculateStandingsWithMulligans(League league) {
+        int mulliganCount = league.getMulliganCount();
+        boolean teamMulligansEnabled = league.isTeamMulligansEnabled();
+
+        // Recalculate driver standings with mulligans
+        for (String uuid : league.getDriversList().keySet()) {
+            List<PointEntry> entries = league.getDriverPointHistory().getOrDefault(uuid, new ArrayList<>());
+            
+            // Group by event
+            Map<String, Integer> eventTotals = new HashMap<>();
+            int manualTotal = 0;
+
+            for (PointEntry entry : entries) {
+                if (entry.getEventId() != null) {
+                    eventTotals.merge(entry.getEventId(), entry.getPoints(), Integer::sum);
+                } else {
+                    // Manual adjustments are immune to mulligans
+                    manualTotal += entry.getPoints();
+                }
+            }
+
+            // Apply mulligans
+            List<String> mulliganedEvents;
+            if (mulliganCount > 0 && eventTotals.size() > mulliganCount) {
+                mulliganedEvents = eventTotals.entrySet().stream()
+                        .sorted(Map.Entry.comparingByValue()) // worst first
+                        .limit(mulliganCount)
+                        .map(Map.Entry::getKey)
+                        .toList();
+            } else {
+                mulliganedEvents = new ArrayList<>();
+            }
+
+            // Calculate final total
+            int total = eventTotals.entrySet().stream()
+                    .filter(e -> !mulliganedEvents.contains(e.getKey()))
+                    .mapToInt(Map.Entry::getValue)
+                    .sum();
+
+            total += manualTotal;
+
+            league.setDriverPoints(uuid, total);
+            league.setDriverMulliganedEvents(uuid, mulliganedEvents);
+        }
+
+        // Recalculate team standings with mulligans (if enabled)
+        if (teamMulligansEnabled) {
+            for (Team team : league.getTeams()) {
+                List<PointEntry> entries = league.getTeamPointHistory().getOrDefault(team.getName(), new ArrayList<>());
+
+                // Group by event
+                Map<String, Integer> eventTotals = new HashMap<>();
+                int manualTotal = 0;
+
+                for (PointEntry entry : entries) {
+                    if (entry.getEventId() != null) {
+                        eventTotals.merge(entry.getEventId(), entry.getPoints(), Integer::sum);
+                    } else {
+                        manualTotal += entry.getPoints();
+                    }
+                }
+
+                // Apply mulligans
+                List<String> mulliganedEvents;
+                if (mulliganCount > 0 && eventTotals.size() > mulliganCount) {
+                    mulliganedEvents = eventTotals.entrySet().stream()
+                            .sorted(Map.Entry.comparingByValue())
+                            .limit(mulliganCount)
+                            .map(Map.Entry::getKey)
+                            .toList();
+                } else {
+                    mulliganedEvents = new ArrayList<>();
+                }
+
+                // Calculate final total
+                int total = eventTotals.entrySet().stream()
+                        .filter(e -> !mulliganedEvents.contains(e.getKey()))
+                        .mapToInt(Map.Entry::getValue)
+                        .sum();
+
+                total += manualTotal;
+
+                league.setTeamPoints(team.getName(), total);
+                league.setTeamMulliganedEvents(team.getName(), mulliganedEvents);
+            }
+        } else {
+            // Team mulligans disabled - just sum all points
+            for (Team team : league.getTeams()) {
+                List<PointEntry> entries = league.getTeamPointHistory().getOrDefault(team.getName(), new ArrayList<>());
+                int total = entries.stream().mapToInt(PointEntry::getPoints).sum();
+                league.setTeamPoints(team.getName(), total);
+            }
+        }
     }
 
 

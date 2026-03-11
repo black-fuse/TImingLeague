@@ -44,6 +44,10 @@ public class LeagueHelpCommand {
             lines.add("§e/league <league> customscale list §7- View custom scale");
             lines.add("§e/league <league> customscale use §7- Activate custom scale");
             lines.add("§e/league <league> customscale clear §7- Clear custom scale");
+            lines.add("§6--- Mulligans ---");
+            lines.add("§e/league <league> mulligans <count> §7- Set mulligan count (drop worst events)");
+            lines.add("§e/league <league> mulligans team <true|false> §7- Enable/disable team mulligans");
+            lines.add("§e/league <league> breakdown <player> §7- View per-event point breakdown");
         }
 
         // ===== Teams =====

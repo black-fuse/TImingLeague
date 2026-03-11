@@ -2,6 +2,13 @@ package com.tekad.TimingLeague.commands;
 
 import com.tekad.TimingLeague.*;
 import com.tekad.TimingLeague.commands.subcommands.*;
+import me.makkuusen.timing.system.theme.Text;
+import me.makkuusen.timing.system.theme.Theme;
+import me.makkuusen.timing.system.theme.messages.Hover;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -112,7 +119,46 @@ public class leagueCommand implements CommandExecutor {
                 }
 
                 if (args.length < 2) {
-                    player.sendMessage("You must specify an action for league '" + leagueName + "'. Try /league help");
+                    // doing a lot of copying from timing system so this might look like a mess
+                    Theme theme = Theme.getTheme(sender);
+
+                    sender.sendMessage("");
+                    sender.sendMessage(theme.getRefreshButton().clickEvent(ClickEvent.runCommand("/league " + leagueName))
+                            .append(Component.space())
+                            .append(theme.getTitleLine(Component.text(leagueName).color(theme.getSecondary())
+                                    .append(Component.space())
+                            )));
+
+                    Component scoringMessage;
+                    if (sender.hasPermission("timingleague.admin")){
+                        scoringMessage = Component.text("scoring system: ", TextColor.color(theme.getSecondary())).append(theme.getBrackets(league.getScoringSystem().getName()).clickEvent(ClickEvent.suggestCommand("/league " + leagueName + " scoring " )).hoverEvent(HoverEvent.showText(Text.get(sender, Hover.CLICK_TO_EDIT))));
+                    }
+                    else{
+                        scoringMessage = Component.text("scoring system: ", TextColor.color(theme.getSecondary())).append(theme.getBrackets(league.getScoringSystem().getName()));
+                    }
+                    sender.sendMessage(scoringMessage);
+
+                    Component mulliganMessage;
+                    if (sender.hasPermission("timingleague.admin")){
+                        mulliganMessage = Component.text("mulligans: ", TextColor.color(theme.getPrimary())).append(theme.getBrackets(String.valueOf(league.getMulliganCount())).clickEvent(ClickEvent.suggestCommand("/league " + leagueName + " mulligans " )).hoverEvent(HoverEvent.showText(Text.get(sender, Hover.CLICK_TO_EDIT))));
+                    }
+                    else{
+                        mulliganMessage = Component.text("mulligans: ", TextColor.color(theme.getPrimary())).append(theme.getBrackets(String.valueOf(league.getMulliganCount())));
+                    }
+                    sender.sendMessage(mulliganMessage);
+
+                    Component teamMessage;
+                    teamMessage = Component.text("teams: ", TextColor.color(theme.getPrimary())).append(theme.getViewButton(sender).clickEvent(ClickEvent.runCommand("/league " + leagueName + " team list")));
+                    sender.sendMessage(teamMessage);
+
+                    sender.sendMessage(Component.text("standings: ", TextColor.color(theme.getPrimary()))
+                            .append(theme.getViewButton(sender)
+                            .clickEvent(ClickEvent.runCommand("/league " + leagueName + " standings"))));
+
+                    sender.sendMessage(Component.text("team standings: ", TextColor.color(theme.getPrimary()))
+                            .append(theme.getViewButton(sender)
+                                    .clickEvent(ClickEvent.runCommand("/league " + leagueName + " standings teams"))));
+
                     return true;
                 }
 
@@ -143,6 +189,8 @@ public class leagueCommand implements CommandExecutor {
                     case "teammode" -> LeagueAdminCommands.handleTeamMode(player, league, args);
                     case "teamconfig" -> LeagueAdminCommands.handleTeamConfig(player, league, args);
                     case "customscale" -> LeagueCustomScaleCommands.handleCustomScale(player, league, args);
+                    case "mulligans" -> LeagueMulliganCommands.handleMulligans(player, league, args);
+                    case "breakdown" -> LeagueMulliganCommands.handleBreakdown(player, league, leagueName, args);
                     case "standings" -> LeagueStandingsCommands.handleStandings(player, league, leagueName, args);
                     case "calendar" -> LeagueStandingsCommands.handleCalendar(player, league);
                     case "holo" -> hologramCommands.handleHolo(player, league, args);

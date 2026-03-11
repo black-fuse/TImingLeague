@@ -5,4 +5,5 @@ import java.util.List;
 public interface ScoringSystem {
     List<Integer> getPointsDistribution(int driverCount); // List of points per placement
     int getPointsForPosition(int position, int driverCount);
+    default String getName(){ return this.getClass().getSimpleName().replace("ScoringSystem", "");}
 }

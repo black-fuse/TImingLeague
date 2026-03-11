@@ -63,8 +63,10 @@ public class LeagueAdminCommands {
         try {
             DefaultStandingsUpdater updater = (DefaultStandingsUpdater) league.getUpdater();
             HeatResult heat = updater.getHeatResults(args[2], args[3]);
-            updater.updateStandingsWithHeat(heat, league);
+            // updater.updateStandingsWithHeat(heat, league);
+            updater.processHeatWithTracking(heat, args[2], league);
             player.sendMessage("Standings updated from heat: " + args[3]);
+            //player.sendMessage("command temporarily disabled, please contact Tekad_ if this is still the case");
         } catch (Exception e) {
             player.sendMessage("Failed to update from heat: " + e.getMessage());
         }

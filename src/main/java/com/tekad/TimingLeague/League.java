@@ -13,7 +13,7 @@ public class League {
     private final String name;
     private final Set<Team> teamsList = new HashSet<>();
     @Getter
-    private final Set<String> calendar = new HashSet<>();
+    private final Set<String> calendar = new LinkedHashSet<>();
     @Getter
     private int predictedDriverCount;
     @Getter
@@ -32,6 +32,22 @@ public class League {
     // Custom scoring scale: position (1-indexed) -> points
     @Getter
     private final Map<Integer, Integer> customScalePoints = new HashMap<>();
+
+    // Mulligan system
+    @Getter @Setter
+    private int mulliganCount = 0;
+    @Getter @Setter
+    private boolean teamMulligansEnabled = false;
+    
+    // Point history tracking for mulligans
+    @Getter
+    private final Map<String, List<PointEntry>> driverPointHistory = new HashMap<>();
+    @Getter
+    private final Map<String, List<PointEntry>> teamPointHistory = new HashMap<>();
+    @Getter
+    private final Map<String, List<String>> driverMulliganedEvents = new HashMap<>();
+    @Getter
+    private final Map<String, List<String>> teamMulliganedEvents = new HashMap<>();
 
     @Getter @Setter
     private TeamMode teamMode = TeamMode.MAIN_RESERVE;
@@ -204,5 +220,29 @@ public class League {
     
     public boolean hasCustomScale() {
         return !customScalePoints.isEmpty();
+    }
+    
+    // Point history management
+    public void addDriverPointEntry(String uuid, PointEntry entry) {
+        driverPointHistory.computeIfAbsent(uuid, k -> new ArrayList<>()).add(entry);
+    }
+    
+    public void addTeamPointEntry(String teamName, PointEntry entry) {
+        teamPointHistory.computeIfAbsent(teamName, k -> new ArrayList<>()).add(entry);
+    }
+    
+    public void clearPointHistory() {
+        driverPointHistory.clear();
+        teamPointHistory.clear();
+        driverMulliganedEvents.clear();
+        teamMulliganedEvents.clear();
+    }
+    
+    public void setDriverMulliganedEvents(String uuid, List<String> events) {
+        driverMulliganedEvents.put(uuid, new ArrayList<>(events));
+    }
+    
+    public void setTeamMulliganedEvents(String teamName, List<String> events) {
+        teamMulliganedEvents.put(teamName, new ArrayList<>(events));
     }
 }

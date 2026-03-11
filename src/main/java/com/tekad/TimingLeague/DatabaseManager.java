@@ -131,6 +131,44 @@ public class DatabaseManager {
             }
         }
 
+        if (!columnExists(connection, "leagues", "mulliganCount")) {
+            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding mulliganCount");
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(
+                        "ALTER TABLE leagues ADD COLUMN mulliganCount INTEGER DEFAULT 0"
+                );
+            }
+        }
+
+        if (!columnExists(connection, "leagues", "teamMulligansEnabled")) {
+            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding teamMulligansEnabled");
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(
+                        "ALTER TABLE leagues ADD COLUMN teamMulligansEnabled INTEGER DEFAULT 0"
+                );
+            }
+        }
+
+        // Create point_history table if it doesn't exist
+        try (Statement stmt = connection.createStatement()) {
+            stmt.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS point_history (
+                    leagueName TEXT,
+                    targetType TEXT,
+                    targetId TEXT,
+                    source TEXT,
+                    eventId TEXT,
+                    points INTEGER,
+                    timestamp INTEGER,
+                    PRIMARY KEY (leagueName, targetType, targetId, source),
+                    FOREIGN KEY (leagueName) REFERENCES leagues(name)
+                )
+            """);
+            Bukkit.getLogger().info("[TimingLeague] point_history table ready");
+        } catch (SQLException e) {
+            Bukkit.getLogger().warning("[TimingLeague] Failed to create point_history table: " + e.getMessage());
+        }
+
         Bukkit.getLogger().info("[TimingLeague] Database migrations complete.");
     }
 
@@ -154,7 +192,7 @@ public class DatabaseManager {
             }
             
             try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode, teamMaxSize, teamScoringCount, customScalePoints) VALUES (?, ?, ?, ?, ?, ?)")) {
+                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode, teamMaxSize, teamScoringCount, customScalePoints, mulliganCount, teamMulligansEnabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
 
                 ps.setString(1, league.getName());
                 ps.setInt(2, league.getPredictedDriverCount());
@@ -162,6 +200,8 @@ public class DatabaseManager {
                 ps.setInt(4, league.getTeamMaxSize());
                 ps.setInt(5, league.getTeamScoringCount());
                 ps.setString(6, customScaleJson);
+                ps.setInt(7, league.getMulliganCount());
+                ps.setInt(8, league.isTeamMulligansEnabled() ? 1 : 0);
                 ps.executeUpdate();
             }
 
@@ -239,6 +279,50 @@ public class DatabaseManager {
                 }
 
                 calendarStmt.executeBatch();
+            }
+
+            // Save point history
+            log("Saving point history");
+            try (PreparedStatement clearHistory = connection.prepareStatement(
+                    "DELETE FROM point_history WHERE leagueName = ?");
+                 PreparedStatement historyStmt = connection.prepareStatement(
+                    "INSERT INTO point_history (leagueName, targetType, targetId, source, eventId, points, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+
+                clearHistory.setString(1, league.getName());
+                clearHistory.executeUpdate();
+
+                // Save driver point history
+                for (Map.Entry<String, List<PointEntry>> entry : league.getDriverPointHistory().entrySet()) {
+                    for (PointEntry pointEntry : entry.getValue()) {
+                        historyStmt.setString(1, league.getName());
+                        historyStmt.setString(2, "driver");
+                        historyStmt.setString(3, entry.getKey());
+                        historyStmt.setString(4, pointEntry.getSource());
+                        historyStmt.setString(5, pointEntry.getEventId());
+                        historyStmt.setInt(6, pointEntry.getPoints());
+                        historyStmt.setLong(7, pointEntry.getTimestamp());
+                        historyStmt.addBatch();
+                    }
+                }
+
+                // Save team point history
+                for (Map.Entry<String, List<PointEntry>> entry : league.getTeamPointHistory().entrySet()) {
+                    for (PointEntry pointEntry : entry.getValue()) {
+                        historyStmt.setString(1, league.getName());
+                        historyStmt.setString(2, "team");
+                        historyStmt.setString(3, entry.getKey());
+                        historyStmt.setString(4, pointEntry.getSource());
+                        historyStmt.setString(5, pointEntry.getEventId());
+                        historyStmt.setInt(6, pointEntry.getPoints());
+                        historyStmt.setLong(7, pointEntry.getTimestamp());
+                        historyStmt.addBatch();
+                    }
+                }
+
+                historyStmt.executeBatch();
+            } catch (SQLException e) {
+                log("WARNING: Failed to save point history for " + league.getName() + ": " + e.getMessage());
+                // Continue anyway - not critical for basic functionality
             }
 
             connection.commit();
@@ -430,6 +514,23 @@ public class DatabaseManager {
             log("WARNING: Failed to load custom scale for " + name + ", continuing without it");
         }
 
+        // Load mulligan settings (with heavy fallback)
+        try {
+            int mulliganCount = leagueResult.getInt("mulliganCount");
+            league.setMulliganCount(mulliganCount);
+        } catch (Exception e) {
+            log("WARNING: Failed to load mulliganCount for " + name + ", defaulting to 0");
+            league.setMulliganCount(0);
+        }
+
+        try {
+            int teamMulligansInt = leagueResult.getInt("teamMulligansEnabled");
+            league.setTeamMulligansEnabled(teamMulligansInt == 1);
+        } catch (Exception e) {
+            log("WARNING: Failed to load teamMulligansEnabled for " + name + ", defaulting to false");
+            league.setTeamMulligansEnabled(false);
+        }
+
         leagueStmt.close();
 
         // Load teams
@@ -505,6 +606,36 @@ public class DatabaseManager {
             league.addEvent(eventName);
         }
         calendarStmt.close();
+
+        // Load point history (with heavy fallback)
+        try {
+            PreparedStatement historyStmt = connection.prepareStatement(
+                    "SELECT * FROM point_history WHERE leagueName = ?");
+            historyStmt.setString(1, name);
+            ResultSet historyResult = historyStmt.executeQuery();
+
+            while (historyResult.next()) {
+                String targetType = historyResult.getString("targetType");
+                String targetId = historyResult.getString("targetId");
+                String source = historyResult.getString("source");
+                String eventId = historyResult.getString("eventId");
+                int points = historyResult.getInt("points");
+                long timestamp = historyResult.getLong("timestamp");
+
+                PointEntry entry = new PointEntry(source, eventId, points, timestamp);
+
+                if ("driver".equals(targetType)) {
+                    league.addDriverPointEntry(targetId, entry);
+                } else if ("team".equals(targetType)) {
+                    league.addTeamPointEntry(targetId, entry);
+                }
+            }
+
+            historyStmt.close();
+        } catch (SQLException e) {
+            log("WARNING: Failed to load point history for " + name + ": " + e.getMessage());
+            // Continue anyway - league will work without history (no mulligans)
+        }
 
         return league;
     }

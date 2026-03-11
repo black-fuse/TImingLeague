@@ -10,6 +10,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -50,19 +51,22 @@ public class LeagueStandingsCommands {
             }
 
             int totalPages = (int) Math.ceil((double) standings.size() / pageSize);
-            
-            Component title = theme.getTitleLine(
-                Component.text("Team Standings ").color(theme.getSecondary())
-                    .append(Component.text("(Page " + page + "/" + totalPages + ")").color(theme.getPrimary()))
-            );
-            player.sendMessage(title);
+
+            player.sendMessage("");
+            player.sendMessage(theme.getRefreshButton().clickEvent(ClickEvent.runCommand("/league " + leagueName + " standings"))
+                    .append(Component.space())
+                    .append(theme.getTitleLine(Component.text(leagueName + " team standings").color(theme.getSecondary())
+                            .append(Component.space())
+                            .append(theme.getBrackets(page + "/" + totalPages))
+                            .append(Component.space())
+                    )));
 
             for (int i = start; i < Math.min(start + pageSize, standings.size()); i++) {
                 var entry = standings.get(i);
                 Component line = Component.text((i + 1) + ". ").color(theme.getPrimary())
                         .append(Component.text(entry.getKey()).color(theme.getSecondary()))
                         .append(theme.hyphen())
-                        .append(Component.text(entry.getValue() + " pts").color(theme.getAward()));
+                        .append(Component.text(entry.getValue() + " pts").color(theme.getSecondary()));
                 player.sendMessage(line);
             }
 
@@ -80,12 +84,15 @@ public class LeagueStandingsCommands {
             }
 
             int totalPages = (int) Math.ceil((double) standings.size() / pageSize);
-            
-            Component title = theme.getTitleLine(
-                Component.text("Driver Standings ").color(theme.getSecondary())
-                    .append(Component.text("(Page " + page + "/" + totalPages + ")").color(theme.getPrimary()))
-            );
-            player.sendMessage(title);
+
+            player.sendMessage("");
+            player.sendMessage(theme.getRefreshButton().clickEvent(ClickEvent.runCommand("/league " + leagueName + " standings"))
+                    .append(Component.space())
+                    .append(theme.getTitleLine(Component.text(leagueName + " driver standings").color(theme.getSecondary())
+                            .append(Component.space())
+                            .append(theme.getBrackets(page + "/" + totalPages))
+                            .append(Component.space())
+                    )));
 
             for (int i = start; i < Math.min(start + pageSize, standings.size()); i++) {
                 var entry = standings.get(i);
@@ -93,7 +100,7 @@ public class LeagueStandingsCommands {
                 Component line = Component.text((i + 1) + ". ").color(theme.getPrimary())
                         .append(Component.text(p.getName()).color(theme.getSecondary()))
                         .append(theme.hyphen())
-                        .append(Component.text(entry.getValue() + " pts").color(theme.getAward()));
+                        .append(Component.text(entry.getValue() + " pts").color(theme.getSecondary()));
                 player.sendMessage(line);
             }
 
@@ -134,9 +141,23 @@ public class LeagueStandingsCommands {
     }
 
     public static boolean handleCalendar(Player player, League league) {
-        StringBuilder builder = new StringBuilder("=== " + league.getName() + " Calendar ===\n");
-        for (String event : league.getCalendar()) {
-            builder.append("- ").append(event).append("\n");
+        Theme theme = Theme.getTheme(player);
+        String leagueName = league.getName();
+
+        player.sendMessage("");
+        player.sendMessage(theme.getRefreshButton().clickEvent(ClickEvent.runCommand("/league " + leagueName + " calendar"))
+                .append(Component.space())
+                .append(theme.getTitleLine(Component.text(leagueName).color(theme.getSecondary())
+                        .append(Component.space())
+                )));
+
+        StringBuilder builder = new StringBuilder();
+        List<String> calendar = new ArrayList<>(league.getCalendar());
+
+        for (int i = calendar.size() - 1; i >= 0; i--) {
+            builder.append("- ")
+                    .append(calendar.get(i))
+                    .append("\n");
         }
         player.sendMessage(builder.toString());
         return true;
