@@ -131,10 +131,10 @@ public class leagueCommand implements CommandExecutor {
 
                     Component scoringMessage;
                     if (sender.hasPermission("timingleague.admin")){
-                        scoringMessage = Component.text("scoring system: ", TextColor.color(theme.getSecondary())).append(theme.getBrackets(league.getScoringSystem().getName()).clickEvent(ClickEvent.suggestCommand("/league " + leagueName + " scoring " )).hoverEvent(HoverEvent.showText(Text.get(sender, Hover.CLICK_TO_EDIT))));
+                        scoringMessage = Component.text("scoring system: ", TextColor.color(theme.getPrimary())).append(theme.getBrackets(league.getScoringSystem().getName()).clickEvent(ClickEvent.suggestCommand("/league " + leagueName + " scoring " )).hoverEvent(HoverEvent.showText(Text.get(sender, Hover.CLICK_TO_EDIT))));
                     }
                     else{
-                        scoringMessage = Component.text("scoring system: ", TextColor.color(theme.getSecondary())).append(theme.getBrackets(league.getScoringSystem().getName()));
+                        scoringMessage = Component.text("scoring system: ", TextColor.color(theme.getPrimary())).append(theme.getBrackets(league.getScoringSystem().getName()));
                     }
                     sender.sendMessage(scoringMessage);
 

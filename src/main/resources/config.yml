@@ -1,0 +1,24 @@
+# TimingLeague REST API Configuration
+
+api:
+  # Enable or disable the REST API
+  enabled: true
+  
+  # Port for the API server
+  port: 8080
+  
+  # Read API key for GET endpoints (auto-generated if empty)
+  read-api-key: ""
+  
+  # Admin API key for POST endpoints (auto-generated if empty)
+  admin-api-key: ""
+  
+  # Rate limit (requests per minute per key)
+  rate-limit: 100
+  
+  # Enable CORS (Cross-Origin Resource Sharing)
+  cors-enabled: true
+  
+  # Allowed origins for CORS (leave empty to allow all)
+  allowed-origins:
+    - "*"

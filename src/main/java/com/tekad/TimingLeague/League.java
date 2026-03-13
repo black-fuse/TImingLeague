@@ -245,4 +245,8 @@ public class League {
     public void setTeamMulliganedEvents(String teamName, List<String> events) {
         teamMulliganedEvents.put(teamName, new ArrayList<>(events));
     }
+
+    public int getTeamPoints(String target) {
+        return teamStandings.get(target);
+    }
 }

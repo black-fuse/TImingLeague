@@ -1,5 +1,7 @@
 package com.tekad.TimingLeague;
 
+import com.tekad.TimingLeague.API.RestAPIServer;
+import com.tekad.TimingLeague.API.config.APIConfig;
 import com.tekad.TimingLeague.commands.LeagueCommandCompleter;
 import com.tekad.TimingLeague.commands.leagueCommand;
 import lombok.Getter;
@@ -15,6 +17,7 @@ import java.util.Map;
 public final class TImingLeague extends JavaPlugin {
 
     private DatabaseManager db;
+    private RestAPIServer apiServer;
 
     @Getter
     private static final Map<String, League> leagueMap = new HashMap<>();
@@ -54,11 +57,30 @@ public final class TImingLeague extends JavaPlugin {
         } else {
             getLogger().severe("Command 'league' not found in plugin.yml!");
         }
+
+        // Start REST API
+        try {
+            APIConfig apiConfig = new APIConfig(this);
+            apiServer = new RestAPIServer(this, apiConfig);
+            apiServer.start();
+        } catch (Exception e) {
+            getLogger().severe("[API] Failed to start REST API: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
 
     @Override
     public void onDisable() {
+        // Stop REST API
+        if (apiServer != null) {
+            try {
+                apiServer.stop();
+            } catch (Exception e) {
+                getLogger().warning("[API] Error stopping REST API: " + e.getMessage());
+            }
+        }
+
         try {
             db.saveAllLeagues(leagueMap.values());
         } catch (SQLException e) {
