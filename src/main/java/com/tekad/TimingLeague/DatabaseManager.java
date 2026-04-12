@@ -231,11 +231,12 @@ public class DatabaseManager {
             logDebug("Saved leagues row for: " + league.getName());
 
             // clear child tables
-            clearTable("teams",            league.getName());
             clearTable("drivers",          league.getName());
+            clearTable("teams",            league.getName());
             clearTable("calendar",         league.getName());
             clearTable("event_categories", league.getName());
             clearTable("point_history",    league.getName());
+            clearTable("holograms",        league.getName());
             logDebug("Cleared child tables for: " + league.getName());
 
             // teams — always include NoTeam so drivers referencing it have a valid row
@@ -330,6 +331,7 @@ public class DatabaseManager {
     }
 
     private void clearTable(String table, String leagueName) throws SQLException {
+        logDebug("clearing table " + table + " " + leagueName);
         try (PreparedStatement ps = connection.prepareStatement(
                 "DELETE FROM " + table + " WHERE leagueName = ?")) {
             ps.setString(1, leagueName);
@@ -705,6 +707,9 @@ public class DatabaseManager {
      * To silence these, search for [TimingLeague] [DEBUG] in your log filter.
      */
     private void logDebug(String msg) {
-        Bukkit.getLogger().info("[TimingLeague] [DEBUG] " + msg);
+        Boolean debug = false;
+        if (debug){
+            Bukkit.getLogger().info("[TimingLeague] [DEBUG] " + msg);
+        }
     }
 }
