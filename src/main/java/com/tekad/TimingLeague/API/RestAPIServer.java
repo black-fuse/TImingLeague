@@ -36,6 +36,7 @@ public class RestAPIServer {
             return;
         }
 
+        ipAddress("0.0.0.0");
         port(config.getPort());
 
         // CORS

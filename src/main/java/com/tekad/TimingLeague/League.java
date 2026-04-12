@@ -6,48 +6,56 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.*;
+import java.util.function.UnaryOperator;
 
 public class League {
 
     @Getter
     private final String name;
     private final Set<Team> teamsList = new HashSet<>();
+
     @Getter
-    private final Set<String> calendar = new LinkedHashSet<>();
+    private final LinkedHashSet<CalendarEntry> calendarEntries = new LinkedHashSet<>();
+
+    @Getter
+    private final Map<String, EventCategory> categories = new LinkedHashMap<>();
+
     @Getter
     private int predictedDriverCount;
-    @Getter
-    @Setter
+    @Getter @Setter
     private ScoringSystem scoringSystem = new BasicScoringSystem();
+
     public final Team NoTeam = new Team("No Team", "a8a8a8", this);
     public int flapPoints = 0;
 
+    @Getter @Setter
+    private boolean driverStandingsEnabled = true;
+    @Getter @Setter
+    private boolean teamStandingsEnabled = true;
+
     private final Map<String, Integer> driverStandings = new HashMap<>();
-    private final Map<String, Integer> teamStandings = new HashMap<>();
+    private final Map<String, Integer> teamStandings   = new HashMap<>();
     @Getter
     private final Map<String, Team> driversList = new HashMap<>();
 
     private StandingsUpdater updater = new DefaultStandingsUpdater();
-    
-    // Custom scoring scale: position (1-indexed) -> points
+
     @Getter
     private final Map<Integer, Integer> customScalePoints = new HashMap<>();
 
-    // Mulligan system
     @Getter @Setter
     private int mulliganCount = 0;
     @Getter @Setter
     private boolean teamMulligansEnabled = false;
-    
-    // Point history tracking for mulligans
+
     @Getter
     private final Map<String, List<PointEntry>> driverPointHistory = new HashMap<>();
     @Getter
-    private final Map<String, List<PointEntry>> teamPointHistory = new HashMap<>();
+    private final Map<String, List<PointEntry>> teamPointHistory   = new HashMap<>();
     @Getter
     private final Map<String, List<String>> driverMulliganedEvents = new HashMap<>();
     @Getter
-    private final Map<String, List<String>> teamMulliganedEvents = new HashMap<>();
+    private final Map<String, List<String>> teamMulliganedEvents   = new HashMap<>();
 
     @Getter @Setter
     private TeamMode teamMode = TeamMode.MAIN_RESERVE;
@@ -56,197 +64,209 @@ public class League {
     @Getter @Setter
     private int teamScoringCount = 2;
 
+
     public League(String name, int predictedDriverCount) {
         this.name = name;
         this.predictedDriverCount = predictedDriverCount;
         teamsList.add(NoTeam);
     }
 
-    public void updateStandings() {
-        updater.updateStandingsFromEvents(this);
+    // ── Calendar ──────────────────────────────────────────────────────────────
+
+    /** Add uncategorised, no pinned heat. */
+    public void addEvent(String eventName) {
+        addCalendarEntry(new CalendarEntry(eventName));
     }
 
-    public StandingsUpdater getUpdater(){
-        return updater;
+    /** Add with category, no pinned heat. */
+    public void addEvent(String eventName, String categoryId) {
+        addCalendarEntry(new CalendarEntry(eventName, categoryId));
     }
 
-    public void setUpdater(StandingsUpdater updater){
-        this.updater = updater;
+    /** Add with category and specific heat to score. */
+    public void addEvent(String eventName, String categoryId, String heatId) {
+        addCalendarEntry(new CalendarEntry(eventName, categoryId, heatId));
     }
 
-    public Set<Team> getTeams() {
-        return teamsList;
-    }
-
-    public Set<String> getTeamsString(){
-        Set<String> list = new HashSet<>();
-        for (Team team : teamsList){
-            list.add(team.getName());
-        }
-
-        return list;
-    }
-
-    public void setPredictedDrivers(int num){
-        predictedDriverCount = num;
-    }
-
-    public void addTeam(Team team) {
-        teamsList.add(team);
-    }
-
-    public Set<String> getDrivers() {
-        return driversList.keySet();
-    }
-
-    public int getDriverPoints(String driver){
-        return driverStandings.getOrDefault(driver, 0);
-    }
-
-    public void setDriverPoints(String driver, int points){
-        driverStandings.put(driver, points);
-    }
-
-    public Map<String, Integer> getDriverStandings(){
-        return  driverStandings;
-    }
-
-    public void addDriver(String driver, Team team) {
-        driversList.put(driver, team);
-    }
-
-    public void addEvent(String event) {
-        calendar.add(event);
-    }
-
-    private void setFlapPoints(int points){
-        flapPoints = points;
-    }
-
-    public boolean addMainDriverToTeam(String uuid, String teamName){
-        Team team = getTeam(teamName);
-        Boolean success = team.addMainDriver(uuid);
-        if (success){
-            driversList.put(uuid, team);
-        }
-
-        return success;
-    }
-
-    public boolean addReserveDriverToTeam(String uuid, String teamName){
-        Team team = getTeam(teamName);
-        Boolean success = team.addReserveDriver(uuid);
-        if (success){
-            driversList.put(uuid, team);
-        }
-
-        return success;
-    }
-
-    public boolean addDriverToTeam(String uuid, String teamName, int priority){
-        Team team = getTeam(teamName);
-        Boolean success;
-        if (teamMode == TeamMode.HIGHEST || teamMode == TeamMode.PRIORITY){
-
-            success = team.addDriver(uuid, priority);
-
-        } else{
-            success = team.addMainDriver(uuid);
-
-            if (!success){
-                team.addReserveDriver(uuid);
-            }
-        }
-
-        if (success){
-            driversList.put(uuid, team);
-        }
-
-        return success;
-    }
-
-    public void addPointsToDriver(String uuid, int points){
-        driverStandings.put(uuid, driverStandings.getOrDefault(uuid, 0) + points);
-    }
-
-    public void addPointsToTeam(String team, int points){
-        teamStandings.put(team, teamStandings.getOrDefault(team, 0) + points);
-
-        for (Team daTeam : teamsList){
-            if (team.equals(daTeam.getName())){
-                daTeam.setPoints(teamStandings.get(team));
-            }
+    /** Replaces any existing entry for the same event name (preserves order on update). */
+    public void addCalendarEntry(CalendarEntry entry) {
+        if (calendarEntries.contains(entry)) {
+            // Already present — do an in-place replace to preserve ordering
+            replaceEntry(entry.getEventName(), existing -> entry);
+        } else {
+            calendarEntries.add(entry);
         }
     }
 
-    public void setTeamPoints(String team, int points){
-        teamStandings.put(team, points);
-
-        for (Team daTeam : teamsList){
-            if (team.equals(daTeam.getName())){
-                daTeam.setPoints(teamStandings.get(team));
-            }
-        }
+    /** Removes an event from the calendar. Returns false if not found. */
+    public boolean removeEvent(String eventName) {
+        return calendarEntries.removeIf(e -> e.getEventName().equals(eventName));
     }
 
-    public Team getTeamByDriver(String driver){
-        return driversList.getOrDefault(driver, NoTeam);
+    /** Backwards-compat: returns ordered set of event name strings only. */
+    public Set<String> getCalendar() {
+        Set<String> names = new LinkedHashSet<>();
+        for (CalendarEntry e : calendarEntries) names.add(e.getEventName());
+        return names;
     }
 
-    public Team getTeam(String teamName) {
-        for (Team team : teamsList) {
-            if (team.getName().equalsIgnoreCase(teamName)) {
-                return team;
-            }
+    public CalendarEntry getCalendarEntry(String eventName) {
+        for (CalendarEntry e : calendarEntries) {
+            if (e.getEventName().equals(eventName)) return e;
         }
         return null;
     }
 
+    /** Sets the category on an existing entry, preserving its heatId. */
+    public boolean setEventCategory(String eventName, String categoryId) {
+        return replaceEntry(eventName, e -> new CalendarEntry(e.getEventName(), categoryId, e.getHeatId()));
+    }
 
-    public Map<String, Integer> getTeamStandings() {
-        return  teamStandings;
+    /** Pins a specific heat on an existing entry, preserving its categoryId. */
+    public boolean setPinnedHeat(String eventName, String heatId) {
+        return replaceEntry(eventName, e -> new CalendarEntry(e.getEventName(), e.getCategoryId(), heatId));
     }
-    
-    // Custom scale management
-    public void setCustomScalePoint(int position, int points) {
-        if (position > 0) {
-            customScalePoints.put(position, points);
+
+    /** In-place replace: finds entry by name, applies replacer, reinserts at same position. */
+    private boolean replaceEntry(String eventName, UnaryOperator<CalendarEntry> replacer) {
+        List<CalendarEntry> ordered = new ArrayList<>(calendarEntries);
+        boolean found = false;
+        for (int i = 0; i < ordered.size(); i++) {
+            if (ordered.get(i).getEventName().equals(eventName)) {
+                ordered.set(i, replacer.apply(ordered.get(i)));
+                found = true;
+                break;
+            }
         }
+        if (found) {
+            calendarEntries.clear();
+            calendarEntries.addAll(ordered);
+        }
+        return found;
     }
-    
-    public void clearCustomScale() {
-        customScalePoints.clear();
+
+
+    // ── Categories ────────────────────────────────────────────────────────────
+
+    public void addCategory(EventCategory category) { categories.put(category.getId(), category); }
+    public EventCategory getCategory(String id) { return categories.get(id); }
+    public boolean hasCategory(String id) { return categories.containsKey(id); }
+    public void removeCategory(String id) { categories.remove(id); }
+
+    public EventCategory getCategoryForEvent(String eventName) {
+        CalendarEntry entry = getCalendarEntry(eventName);
+        if (entry == null || !entry.hasCategory()) return null;
+        return categories.get(entry.getCategoryId());
     }
-    
-    public boolean hasCustomScale() {
-        return !customScalePoints.isEmpty();
+
+    public ScoringSystem getScoringSystemForEvent(String eventName) {
+        EventCategory cat = getCategoryForEvent(eventName);
+        return cat != null ? cat.getScoringSystem() : scoringSystem;
     }
-    
-    // Point history management
+
+    public int getMulliganCountForEvent(String eventName) {
+        EventCategory cat = getCategoryForEvent(eventName);
+        return cat != null ? cat.getMulliganCount() : mulliganCount;
+    }
+
+    // ── Standings toggles ─────────────────────────────────────────────────────
+
+    public boolean isOnlyTeamStandings()   { return teamStandingsEnabled && !driverStandingsEnabled; }
+    public boolean isOnlyDriverStandings() { return driverStandingsEnabled && !teamStandingsEnabled; }
+
+    // ── Standings update ──────────────────────────────────────────────────────
+
+    public void updateStandings() { updater.updateStandingsFromEvents(this); }
+    public StandingsUpdater getUpdater() { return updater; }
+    public void setUpdater(StandingsUpdater updater) { this.updater = updater; }
+
+    // ── Teams ─────────────────────────────────────────────────────────────────
+
+    public Set<Team> getTeams() { return teamsList; }
+    public Set<String> getTeamsString() {
+        Set<String> list = new HashSet<>();
+        for (Team team : teamsList) list.add(team.getName());
+        return list;
+    }
+    public void setPredictedDrivers(int num) { predictedDriverCount = num; }
+    public void addTeam(Team team) { teamsList.add(team); }
+    public Set<String> getDrivers() { return driversList.keySet(); }
+    public int getDriverPoints(String driver) { return driverStandings.getOrDefault(driver, 0); }
+    public void setDriverPoints(String driver, int points) { driverStandings.put(driver, points); }
+    public Map<String, Integer> getDriverStandings() { return driverStandings; }
+    public void addDriver(String driver, Team team) { driversList.put(driver, team); }
+
+    public boolean addMainDriverToTeam(String uuid, String teamName) {
+        Team team = getTeam(teamName);
+        boolean success = team.addMainDriver(uuid);
+        if (success) driversList.put(uuid, team);
+        return success;
+    }
+
+    public boolean addReserveDriverToTeam(String uuid, String teamName) {
+        Team team = getTeam(teamName);
+        boolean success = team.addReserveDriver(uuid);
+        if (success) driversList.put(uuid, team);
+        return success;
+    }
+
+    public boolean addDriverToTeam(String uuid, String teamName, int priority) {
+        Team team = getTeam(teamName);
+        boolean success;
+        if (teamMode == TeamMode.HIGHEST || teamMode == TeamMode.PRIORITY) {
+            success = team.addDriver(uuid, priority);
+        } else {
+            success = team.addMainDriver(uuid);
+            if (!success) team.addReserveDriver(uuid);
+        }
+        if (success) driversList.put(uuid, team);
+        return success;
+    }
+
+    public void addPointsToDriver(String uuid, int points) {
+        driverStandings.put(uuid, driverStandings.getOrDefault(uuid, 0) + points);
+    }
+
+    public void addPointsToTeam(String team, int points) {
+        teamStandings.put(team, teamStandings.getOrDefault(team, 0) + points);
+        for (Team t : teamsList) { if (team.equals(t.getName())) t.setPoints(teamStandings.get(team)); }
+    }
+
+    public void setTeamPoints(String team, int points) {
+        teamStandings.put(team, points);
+        for (Team t : teamsList) { if (team.equals(t.getName())) t.setPoints(teamStandings.get(team)); }
+    }
+
+    public Team getTeamByDriver(String driver) { return driversList.getOrDefault(driver, NoTeam); }
+    public Team getTeam(String teamName) {
+        for (Team team : teamsList) { if (team.getName().equalsIgnoreCase(teamName)) return team; }
+        return null;
+    }
+    public Map<String, Integer> getTeamStandings() { return teamStandings; }
+    public int getTeamPoints(String target) { return teamStandings.getOrDefault(target, 0); }
+
+    // ── Custom scale ──────────────────────────────────────────────────────────
+
+    public void setCustomScalePoint(int position, int points) { if (position > 0) customScalePoints.put(position, points); }
+    public void clearCustomScale() { customScalePoints.clear(); }
+    public boolean hasCustomScale() { return !customScalePoints.isEmpty(); }
+
+    // ── Point history ─────────────────────────────────────────────────────────
+
     public void addDriverPointEntry(String uuid, PointEntry entry) {
         driverPointHistory.computeIfAbsent(uuid, k -> new ArrayList<>()).add(entry);
     }
-    
     public void addTeamPointEntry(String teamName, PointEntry entry) {
         teamPointHistory.computeIfAbsent(teamName, k -> new ArrayList<>()).add(entry);
     }
-    
     public void clearPointHistory() {
-        driverPointHistory.clear();
-        teamPointHistory.clear();
-        driverMulliganedEvents.clear();
-        teamMulliganedEvents.clear();
+        driverPointHistory.clear(); teamPointHistory.clear();
+        driverMulliganedEvents.clear(); teamMulliganedEvents.clear();
     }
-    
     public void setDriverMulliganedEvents(String uuid, List<String> events) {
         driverMulliganedEvents.put(uuid, new ArrayList<>(events));
     }
-    
     public void setTeamMulliganedEvents(String teamName, List<String> events) {
         teamMulliganedEvents.put(teamName, new ArrayList<>(events));
-    }
-
-    public int getTeamPoints(String target) {
-        return teamStandings.get(target);
     }
 }

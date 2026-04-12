@@ -59,14 +59,14 @@ public final class TImingLeague extends JavaPlugin {
         }
 
         // Start REST API
-        try {
-            APIConfig apiConfig = new APIConfig(this);
-            apiServer = new RestAPIServer(this, apiConfig);
-            apiServer.start();
-        } catch (Exception e) {
-            getLogger().severe("[API] Failed to start REST API: " + e.getMessage());
-            e.printStackTrace();
-        }
+//        try {
+//            APIConfig apiConfig = new APIConfig(this);
+//            apiServer = new RestAPIServer(this, apiConfig);
+//            apiServer.start();
+//        } catch (Exception e) {
+//            getLogger().severe("[API] Failed to start REST API: " + e.getMessage());
+//            e.printStackTrace();
+//        }
     }
 
 

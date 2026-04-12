@@ -27,131 +27,67 @@ public class DatabaseManager {
         connection = DriverManager.getConnection("jdbc:sqlite:" + dbfile.getAbsolutePath());
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Table creation
+    // ─────────────────────────────────────────────────────────────────────────
+
     public void createTables() throws SQLException {
         String sql = """
-                    CREATE TABLE IF NOT EXISTS leagues (
-                        name TEXT PRIMARY KEY,
-                        predictedDrivers INTEGER
-                    );
-                    CREATE TABLE IF NOT EXISTS teams (
-                        leagueName TEXT,
-                        name TEXT,
-                        color TEXT,
-                        owner TEXT,
-                        points INT,
-                        PRIMARY KEY (leagueName, name),
-                        FOREIGN KEY (leagueName) REFERENCES leagues(name)
-                    );
-                    CREATE TABLE IF NOT EXISTS drivers (
-                        leagueName TEXT,
-                        uuid TEXT,
-                        team TEXT,
-                        role TEXT,  -- 'main', 'reserve', or 'none'
-                        points INTEGER,
-                        PRIMARY KEY (leagueName, uuid),
-                        FOREIGN KEY (leagueName) REFERENCES leagues(name),
-                        FOREIGN KEY (leagueName, team) REFERENCES teams(leagueName, name)
-                    );
-                    CREATE TABLE IF NOT EXISTS calendar (
-                        leagueName TEXT,
-                        eventName TEXT
-                    );
-                    CREATE TABLE IF NOT EXISTS holograms (
-                                id TEXT PRIMARY KEY,
-                                leagueName TEXT,
-                                world TEXT,
-                                x REAL,
-                                y REAL,
-                                z REAL,
-                                FOREIGN KEY (leagueName) REFERENCES leagues(name)
-                    );
-                """;
-
-        Statement stmt = connection.createStatement();
-        stmt.executeUpdate(sql);
-        stmt.close();
-    }
-
-    private boolean columnExists(Connection conn, String table, String column) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "PRAGMA table_info(" + table + ")")) {
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    if (column.equalsIgnoreCase(rs.getString("name"))) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    public void migrate() throws SQLException {
-        Bukkit.getLogger().info("[TimingLeague] Running database migrations...");
-
-        try (Statement stmt = connection.createStatement()) {
-            // Ensure foreign keys are enforced
-            stmt.execute("PRAGMA foreign_keys = ON");
-        }
-
-        // --- leagues table migrations ---
-        if (!columnExists(connection, "leagues", "teamMode")) {
-            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding teamMode");
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate(
-                        "ALTER TABLE leagues ADD COLUMN teamMode TEXT DEFAULT 'MAIN_RESERVE'"
+                CREATE TABLE IF NOT EXISTS leagues (
+                    name TEXT PRIMARY KEY,
+                    predictedDrivers INTEGER,
+                    teamMode TEXT DEFAULT 'MAIN_RESERVE',
+                    teamMaxSize INTEGER DEFAULT 0,
+                    teamScoringCount INTEGER DEFAULT 0,
+                    customScalePoints TEXT DEFAULT NULL,
+                    mulliganCount INTEGER DEFAULT 0,
+                    teamMulligansEnabled INTEGER DEFAULT 0,
+                    scoringSystem TEXT DEFAULT 'Basic',
+                    driverStandingsEnabled INTEGER DEFAULT 1,
+                    teamStandingsEnabled INTEGER DEFAULT 1
                 );
-            }
-        }
-
-        if (!columnExists(connection, "leagues", "teamMaxSize")) {
-            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding teamMaxSize");
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate(
-                        "ALTER TABLE leagues ADD COLUMN teamMaxSize INTEGER DEFAULT 0"
+                CREATE TABLE IF NOT EXISTS teams (
+                    leagueName TEXT,
+                    name TEXT,
+                    color TEXT,
+                    owner TEXT,
+                    points INT,
+                    PRIMARY KEY (leagueName, name),
+                    FOREIGN KEY (leagueName) REFERENCES leagues(name)
                 );
-            }
-        }
-
-        if (!columnExists(connection, "leagues", "teamScoringCount")) {
-            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding teamScoringCount");
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate(
-                        "ALTER TABLE leagues ADD COLUMN teamScoringCount INTEGER DEFAULT 0"
+                CREATE TABLE IF NOT EXISTS drivers (
+                    leagueName TEXT,
+                    uuid TEXT,
+                    team TEXT,
+                    role TEXT,
+                    points INTEGER,
+                    PRIMARY KEY (leagueName, uuid),
+                    FOREIGN KEY (leagueName) REFERENCES leagues(name)
                 );
-            }
-        }
-
-        if (!columnExists(connection, "leagues", "customScalePoints")) {
-            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding customScalePoints");
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate(
-                        "ALTER TABLE leagues ADD COLUMN customScalePoints TEXT DEFAULT NULL"
+                CREATE TABLE IF NOT EXISTS calendar (
+                    leagueName TEXT,
+                    eventName TEXT,
+                    category TEXT DEFAULT NULL,
+                    heatId TEXT DEFAULT NULL
                 );
-            }
-        }
-
-        if (!columnExists(connection, "leagues", "mulliganCount")) {
-            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding mulliganCount");
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate(
-                        "ALTER TABLE leagues ADD COLUMN mulliganCount INTEGER DEFAULT 0"
+                CREATE TABLE IF NOT EXISTS event_categories (
+                    leagueName TEXT,
+                    categoryId TEXT,
+                    displayName TEXT,
+                    scoringSystem TEXT DEFAULT 'Basic',
+                    mulliganCount INTEGER DEFAULT 0,
+                    PRIMARY KEY (leagueName, categoryId),
+                    FOREIGN KEY (leagueName) REFERENCES leagues(name)
                 );
-            }
-        }
-
-        if (!columnExists(connection, "leagues", "teamMulligansEnabled")) {
-            Bukkit.getLogger().info("[TimingLeague] Migrating leagues: adding teamMulligansEnabled");
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate(
-                        "ALTER TABLE leagues ADD COLUMN teamMulligansEnabled INTEGER DEFAULT 0"
+                CREATE TABLE IF NOT EXISTS holograms (
+                    id TEXT PRIMARY KEY,
+                    leagueName TEXT,
+                    world TEXT,
+                    x REAL,
+                    y REAL,
+                    z REAL,
+                    FOREIGN KEY (leagueName) REFERENCES leagues(name)
                 );
-            }
-        }
-
-        // Create point_history table if it doesn't exist
-        try (Statement stmt = connection.createStatement()) {
-            stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS point_history (
                     leagueName TEXT,
                     targetType TEXT,
@@ -162,174 +98,230 @@ public class DatabaseManager {
                     timestamp INTEGER,
                     PRIMARY KEY (leagueName, targetType, targetId, source),
                     FOREIGN KEY (leagueName) REFERENCES leagues(name)
-                )
-            """);
-            Bukkit.getLogger().info("[TimingLeague] point_history table ready");
-        } catch (SQLException e) {
-            Bukkit.getLogger().warning("[TimingLeague] Failed to create point_history table: " + e.getMessage());
+                );
+                """;
+        Statement stmt = connection.createStatement();
+        stmt.executeUpdate(sql);
+        stmt.close();
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Migration
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private boolean columnExists(Connection conn, String table, String column) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("PRAGMA table_info(" + table + ")");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                if (column.equalsIgnoreCase(rs.getString("name"))) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean tableExists(Connection conn, String table) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?")) {
+            ps.setString(1, table);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    public void migrate() throws SQLException {
+        log("Running database migrations...");
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("PRAGMA foreign_keys = ON");
         }
 
-        Bukkit.getLogger().info("[TimingLeague] Database migrations complete.");
+        // leagues table additions
+        addColumnIfMissing("leagues", "teamMode",              "TEXT DEFAULT 'MAIN_RESERVE'");
+        addColumnIfMissing("leagues", "teamMaxSize",           "INTEGER DEFAULT 0");
+        addColumnIfMissing("leagues", "teamScoringCount",      "INTEGER DEFAULT 0");
+        addColumnIfMissing("leagues", "customScalePoints",     "TEXT DEFAULT NULL");
+        addColumnIfMissing("leagues", "mulliganCount",         "INTEGER DEFAULT 0");
+        addColumnIfMissing("leagues", "teamMulligansEnabled",  "INTEGER DEFAULT 0");
+        addColumnIfMissing("leagues", "scoringSystem",         "TEXT DEFAULT 'Basic'");
+        addColumnIfMissing("leagues", "driverStandingsEnabled","INTEGER DEFAULT 1");
+        addColumnIfMissing("leagues", "teamStandingsEnabled",  "INTEGER DEFAULT 1");
+
+        // calendar category + heatId columns
+        addColumnIfMissing("calendar", "category", "TEXT DEFAULT NULL");
+        addColumnIfMissing("calendar", "heatId",   "TEXT DEFAULT NULL");
+
+        // event_categories table (new)
+        if (!tableExists(connection, "event_categories")) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS event_categories (
+                        leagueName TEXT,
+                        categoryId TEXT,
+                        displayName TEXT,
+                        scoringSystem TEXT DEFAULT 'Basic',
+                        mulliganCount INTEGER DEFAULT 0,
+                        PRIMARY KEY (leagueName, categoryId),
+                        FOREIGN KEY (leagueName) REFERENCES leagues(name)
+                    )""");
+                log("Created event_categories table");
+            }
+        }
+
+        // point_history table
+        if (!tableExists(connection, "point_history")) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS point_history (
+                        leagueName TEXT,
+                        targetType TEXT,
+                        targetId TEXT,
+                        source TEXT,
+                        eventId TEXT,
+                        points INTEGER,
+                        timestamp INTEGER,
+                        PRIMARY KEY (leagueName, targetType, targetId, source),
+                        FOREIGN KEY (leagueName) REFERENCES leagues(name)
+                    )""");
+                log("Created point_history table");
+            }
+        }
+
+        log("Database migrations complete.");
     }
+
+    private void addColumnIfMissing(String table, String column, String definition) throws SQLException {
+        if (!columnExists(connection, table, column)) {
+            log("Migrating " + table + ": adding " + column);
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+            }
+        }
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Save
+    // ─────────────────────────────────────────────────────────────────────────
 
     public void saveLeague(League league) throws SQLException {
         log("Saving league: " + league.getName());
-
         connection.setAutoCommit(false);
-        log("Transaction started for league: " + league.getName());
-
         try {
-            log("Upserting league row");
-            
-            // Serialize custom scale to JSON
-            String customScaleJson = null;
-            try {
-                if (league.hasCustomScale()) {
-                    customScaleJson = serializeCustomScale(league.getCustomScalePoints());
-                }
-            } catch (Exception e) {
-                log("WARNING: Failed to serialize custom scale for " + league.getName() + ", continuing without it");
-            }
-            
+            // leagues row
             try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT OR REPLACE INTO leagues (name, predictedDrivers, teamMode, teamMaxSize, teamScoringCount, customScalePoints, mulliganCount, teamMulligansEnabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
-
+                    "INSERT OR REPLACE INTO leagues " +
+                    "(name, predictedDrivers, teamMode, teamMaxSize, teamScoringCount, " +
+                    "customScalePoints, mulliganCount, teamMulligansEnabled, " +
+                    "scoringSystem, driverStandingsEnabled, teamStandingsEnabled) " +
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?)")) {
                 ps.setString(1, league.getName());
                 ps.setInt(2, league.getPredictedDriverCount());
                 ps.setString(3, league.getTeamMode().name());
                 ps.setInt(4, league.getTeamMaxSize());
                 ps.setInt(5, league.getTeamScoringCount());
-                ps.setString(6, customScaleJson);
+                ps.setString(6, league.hasCustomScale() ? serializeIntMap(league.getCustomScalePoints()) : null);
                 ps.setInt(7, league.getMulliganCount());
                 ps.setInt(8, league.isTeamMulligansEnabled() ? 1 : 0);
+                ps.setString(9, EventCategory.scoringSystemNameOf(league.getScoringSystem()));
+                ps.setInt(10, league.isDriverStandingsEnabled() ? 1 : 0);
+                ps.setInt(11, league.isTeamStandingsEnabled() ? 1 : 0);
                 ps.executeUpdate();
             }
+            logDebug("Saved leagues row for: " + league.getName());
 
-            log("Clearing teams, drivers, calendar for league");
-            try (PreparedStatement clearDrivers = connection.prepareStatement(
-                    "DELETE FROM drivers WHERE leagueName = ?");
-                 PreparedStatement clearTeams = connection.prepareStatement(
-                         "DELETE FROM teams WHERE leagueName = ?");
-                 PreparedStatement clearCalendar = connection.prepareStatement(
-                         "DELETE FROM calendar WHERE leagueName = ?")) {
+            // clear child tables
+            clearTable("teams",            league.getName());
+            clearTable("drivers",          league.getName());
+            clearTable("calendar",         league.getName());
+            clearTable("event_categories", league.getName());
+            clearTable("point_history",    league.getName());
+            logDebug("Cleared child tables for: " + league.getName());
 
-                clearDrivers.setString(1, league.getName());
-                clearTeams.setString(1, league.getName());
-                clearCalendar.setString(1, league.getName());
+            // teams — always include NoTeam so drivers referencing it have a valid row
+            Set<Team> teamsToSave = new LinkedHashSet<>();
+            teamsToSave.add(league.NoTeam); // NoTeam first, always
+            teamsToSave.addAll(league.getTeams());
+            logDebug("Saving " + teamsToSave.size() + " teams (including NoTeam)");
 
-                clearDrivers.executeUpdate();
-                clearTeams.executeUpdate();
-                clearCalendar.executeUpdate();
-            }
-
-
-            log("Saving " + league.getTeams().size() + " teams");
-
-            try (PreparedStatement teamStmt = connection.prepareStatement(
-                    "INSERT OR REPLACE INTO teams (leagueName, name, color, owner, points) VALUES (?, ?, ?, ?, ?)")) {
-
-                for (Team team : league.getTeams()) {
-                    teamStmt.setString(1, league.getName());
-                    teamStmt.setString(2, team.getName());
-                    teamStmt.setString(3, team.getColor());
-                    teamStmt.setString(4, team.getOwner());
-                    teamStmt.setInt(5, team.getPoints());
-                    teamStmt.addBatch();
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT OR REPLACE INTO teams (leagueName,name,color,owner,points) VALUES (?,?,?,?,?)")) {
+                for (Team team : teamsToSave) {
+                    ps.setString(1, league.getName());
+                    ps.setString(2, team.getName());
+                    ps.setString(3, team.getColor());
+                    ps.setString(4, team.getOwner());  // may be null — that's fine
+                    ps.setInt(5, team.getPoints());
+                    ps.addBatch();
                 }
-
-                teamStmt.executeBatch();
+                ps.executeBatch();
             }
 
-            log("Saving " + league.getDrivers().size() + " drivers");
-
-            try (PreparedStatement driverStmt = connection.prepareStatement(
-                    "INSERT INTO drivers (leagueName, uuid, team, role, points) VALUES (?, ?, ?, ?, ?)")) {
-
+            // drivers
+            int driversSaved = 0;
+            int driversSkipped = 0;
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO drivers (leagueName,uuid,team,role,points) VALUES (?,?,?,?,?)")) {
                 for (String uuid : league.getDrivers()) {
                     Team team = league.getTeamByDriver(uuid);
                     if (team == null) {
-                        log("Skipping driver " + uuid + " (no team)");
+                        logDebug("Skipping driver " + uuid + " (null team)");
+                        driversSkipped++;
                         continue;
                     }
-
                     String role = team.isMain(uuid) ? "main"
                             : team.isReserve(uuid) ? "reserve"
                             : String.valueOf(team.getPriority(uuid));
-
-                    driverStmt.setString(1, league.getName());
-                    driverStmt.setString(2, uuid);
-                    driverStmt.setString(3, team.getName());
-                    driverStmt.setString(4, role);
-                    driverStmt.setInt(5, league.getDriverPoints(uuid));
-                    driverStmt.addBatch();
+                    ps.setString(1, league.getName());
+                    ps.setString(2, uuid);
+                    ps.setString(3, team.getName());
+                    ps.setString(4, role);
+                    ps.setInt(5, league.getDriverPoints(uuid));
+                    ps.addBatch();
+                    driversSaved++;
                 }
-
-                driverStmt.executeBatch();
+                ps.executeBatch();
             }
+            logDebug("Saved " + driversSaved + " drivers" +
+                    (driversSkipped > 0 ? ", skipped " + driversSkipped + " with null team" : ""));
 
-            log("Saving calendar with " + league.getCalendar().size() + " events");
-
-            try (PreparedStatement calendarStmt = connection.prepareStatement(
-                    "INSERT INTO calendar (leagueName, eventName) VALUES (?, ?)")) {
-
-                for (String event : league.getCalendar()) {
-                    calendarStmt.setString(1, league.getName());
-                    calendarStmt.setString(2, event);
-                    calendarStmt.addBatch();
+            // calendar
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO calendar (leagueName,eventName,category,heatId) VALUES (?,?,?,?)")) {
+                for (CalendarEntry entry : league.getCalendarEntries()) {
+                    ps.setString(1, league.getName());
+                    ps.setString(2, entry.getEventName());
+                    ps.setString(3, entry.getCategoryId());   // may be null
+                    ps.setString(4, entry.getHeatId());       // may be null
+                    ps.addBatch();
                 }
-
-                calendarStmt.executeBatch();
+                ps.executeBatch();
             }
+            logDebug("Saved " + league.getCalendarEntries().size() + " calendar entries");
 
-            // Save point history
-            log("Saving point history");
-            try (PreparedStatement clearHistory = connection.prepareStatement(
-                    "DELETE FROM point_history WHERE leagueName = ?");
-                 PreparedStatement historyStmt = connection.prepareStatement(
-                    "INSERT INTO point_history (leagueName, targetType, targetId, source, eventId, points, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
-
-                clearHistory.setString(1, league.getName());
-                clearHistory.executeUpdate();
-
-                // Save driver point history
-                for (Map.Entry<String, List<PointEntry>> entry : league.getDriverPointHistory().entrySet()) {
-                    for (PointEntry pointEntry : entry.getValue()) {
-                        historyStmt.setString(1, league.getName());
-                        historyStmt.setString(2, "driver");
-                        historyStmt.setString(3, entry.getKey());
-                        historyStmt.setString(4, pointEntry.getSource());
-                        historyStmt.setString(5, pointEntry.getEventId());
-                        historyStmt.setInt(6, pointEntry.getPoints());
-                        historyStmt.setLong(7, pointEntry.getTimestamp());
-                        historyStmt.addBatch();
-                    }
+            // event_categories
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT OR REPLACE INTO event_categories " +
+                    "(leagueName,categoryId,displayName,scoringSystem,mulliganCount) VALUES (?,?,?,?,?)")) {
+                for (EventCategory cat : league.getCategories().values()) {
+                    ps.setString(1, league.getName());
+                    ps.setString(2, cat.getId());
+                    ps.setString(3, cat.getDisplayName());
+                    ps.setString(4, cat.getScoringSystemName());
+                    ps.setInt(5, cat.getMulliganCount());
+                    ps.addBatch();
                 }
-
-                // Save team point history
-                for (Map.Entry<String, List<PointEntry>> entry : league.getTeamPointHistory().entrySet()) {
-                    for (PointEntry pointEntry : entry.getValue()) {
-                        historyStmt.setString(1, league.getName());
-                        historyStmt.setString(2, "team");
-                        historyStmt.setString(3, entry.getKey());
-                        historyStmt.setString(4, pointEntry.getSource());
-                        historyStmt.setString(5, pointEntry.getEventId());
-                        historyStmt.setInt(6, pointEntry.getPoints());
-                        historyStmt.setLong(7, pointEntry.getTimestamp());
-                        historyStmt.addBatch();
-                    }
-                }
-
-                historyStmt.executeBatch();
-            } catch (SQLException e) {
-                log("WARNING: Failed to save point history for " + league.getName() + ": " + e.getMessage());
-                // Continue anyway - not critical for basic functionality
+                ps.executeBatch();
             }
+            logDebug("Saved " + league.getCategories().size() + " categories");
+
+            // point_history
+            savePointHistory(league);
 
             connection.commit();
-            log("Transaction committed for league: " + league.getName());
-
+            log("Saved league: " + league.getName());
         } catch (SQLException e) {
-            log("ERROR saving league " + league.getName() + ", rolling back");
+            log("ERROR saving " + league.getName() + ": " + e.getMessage() + " — rolling back");
             connection.rollback();
             throw e;
         } finally {
@@ -337,304 +329,204 @@ public class DatabaseManager {
         }
     }
 
-
-    public void saveAllLeagues(Collection<League> leagues) throws SQLException {
-        for (League league : leagues) {
-            saveLeague(league);
+    private void clearTable(String table, String leagueName) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "DELETE FROM " + table + " WHERE leagueName = ?")) {
+            ps.setString(1, leagueName);
+            ps.executeUpdate();
         }
     }
 
-    public void saveHolograms(List<String> holograms) throws SQLException {
-        try (PreparedStatement clearHolograms = connection.prepareStatement("DELETE FROM holograms")){
-            clearHolograms.executeUpdate();
-        }
-        String sql = "INSERT OR REPLACE INTO holograms (id, leagueName, world, x, y, z) VALUES (?, ?, ?, ?, ?, ?)";
-        PreparedStatement holoStmt = connection.prepareStatement(sql);
-
-        for (String hologramName : holograms) {
-            Hologram holo = DHAPI.getHologram(hologramName);
-            if (holo == null) continue;
-
-            Location location = holo.getLocation();
-
-            // Format: league-holo-<leagueName>-<teamMode>-<UUID>
-            // Strip "league-holo-" and then split the rest
-            String stripped = hologramName.substring("league-holo-".length()); // e.g. realFc1-false-UUID
-            String[] parts = stripped.split("-", 3); // limit to 3 parts to handle league names with hyphens
-
-            if (parts.length < 3) {
-                System.err.println("Invalid hologram name format: " + hologramName);
-                continue;
-            }
-
-            String leagueName = parts[0];
-            String teamMode = parts[1];
-            String uuidPart = parts[2]; // not used for saving, but included in full name
-
-            holoStmt.setString(1, hologramName);
-            holoStmt.setString(2, leagueName);
-            holoStmt.setString(3, location.getWorld().getName());
-            holoStmt.setDouble(4, location.getX());
-            holoStmt.setDouble(5, location.getY());
-            holoStmt.setDouble(6, location.getZ());
-
-            holoStmt.addBatch();
-        }
-
-        holoStmt.executeBatch();
-        holoStmt.close();
-    }
-
-
-    public List<String> loadHolograms() throws SQLException {
-        String sql = "SELECT id, leagueName, world, x, y, z FROM holograms";
-        PreparedStatement stmt = connection.prepareStatement(sql);
-        ResultSet rs = stmt.executeQuery();
-        List<String> holoNames = new ArrayList<>();
-
-        while (rs.next()) {
-            String id = rs.getString("id");
-            String leagueName = rs.getString("leagueName");
-            String worldName = rs.getString("world");
-            double x = rs.getDouble("x");
-            double y = rs.getDouble("y");
-            double z = rs.getDouble("z");
-
-            World world = Bukkit.getWorld(worldName);
-            if (world == null) {
-                Bukkit.getLogger().warning("Could not load hologram '" + id + "': world '" + worldName + "' not found.");
-                continue;
-            }
-
-            Location location = new Location(world, x, y, z);
-
-            Map<String, League> leagueMap = TImingLeague.getLeagueMap();
-            League league = leagueMap.get(leagueName);
-            if (league == null) {
-                Bukkit.getLogger().warning("Could not load hologram '" + id + "': league '" + leagueName + "' not found.");
-                continue;
-            }
-
-            // Extract the team mode from the hologram name
-            String stripped = id.substring("league-holo-".length()); // realFc1-false-UUID
-            String[] parts = stripped.split("-", 3); // [leagueName, teamMode, UUID]
-
-            if (parts.length < 3) {
-                Bukkit.getLogger().warning("Invalid hologram ID format: " + id);
-                continue;
-            }
-
-            String teamModeRaw = parts[1];
-            boolean teamMode = Boolean.parseBoolean(teamModeRaw);
-
-            List<String> lines = new ArrayList<>();
-            lines.add("&c" + leagueName + " " + (teamMode ? "team" : "driver") + " leaderboard");
-
-            var standings = teamMode
-                    ? league.getTeamStandings().entrySet()
-                    : league.getDriverStandings().entrySet();
-
-            List<Map.Entry<String, Integer>> sorted = standings.stream()
-                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
-                    .toList();
-
-            for (int i = 0; i < Math.min(15, sorted.size()); i++) {
-                var entry = sorted.get(i);
-                if (teamMode) {
-                    lines.add("&e#" + (i + 1) + ". &b" + entry.getKey() + " &7- &a" + entry.getValue() + " pts");
-                } else {
-                    String name = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey())).getName();
-                    lines.add("&e#" + (i + 1) + ". &b" + (name != null ? name : "Unknown") + " &7- &a" + entry.getValue() + " pts");
+    private void savePointHistory(League league) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "INSERT INTO point_history " +
+                "(leagueName,targetType,targetId,source,eventId,points,timestamp) VALUES (?,?,?,?,?,?,?)")) {
+            for (Map.Entry<String, List<PointEntry>> e : league.getDriverPointHistory().entrySet()) {
+                for (PointEntry pe : e.getValue()) {
+                    ps.setString(1, league.getName()); ps.setString(2, "driver");
+                    ps.setString(3, e.getKey());       ps.setString(4, pe.getSource());
+                    ps.setString(5, pe.getEventId());  ps.setInt(6, pe.getPoints());
+                    ps.setLong(7, pe.getTimestamp());  ps.addBatch();
                 }
             }
-
-            while (lines.size() < 15) {
-                lines.add("&e#" + (lines.size() + 1) + ". &7---");
+            for (Map.Entry<String, List<PointEntry>> e : league.getTeamPointHistory().entrySet()) {
+                for (PointEntry pe : e.getValue()) {
+                    ps.setString(1, league.getName()); ps.setString(2, "team");
+                    ps.setString(3, e.getKey());       ps.setString(4, pe.getSource());
+                    ps.setString(5, pe.getEventId());  ps.setInt(6, pe.getPoints());
+                    ps.setLong(7, pe.getTimestamp());  ps.addBatch();
+                }
             }
-
-            DHAPI.createHologram(id, location, false, lines);
-            holoNames.add(id);
+            ps.executeBatch();
+        } catch (SQLException e) {
+            log("WARNING: Failed to save point history for " + league.getName() + ": " + e.getMessage());
         }
+    }
 
-        rs.close();
-        stmt.close();
-        return holoNames;
+    public void saveAllLeagues(Collection<League> leagues) throws SQLException {
+        for (League league : leagues) saveLeague(league);
     }
 
 
-    // i made chat gpt write this one because i am hopeless when it comes to sql keep an eye on this just in case
+    // ─────────────────────────────────────────────────────────────────────────
+    // Load
+    // ─────────────────────────────────────────────────────────────────────────
+
     public League loadLeague(String name) throws SQLException {
-        // Load base league info
-        PreparedStatement leagueStmt = connection.prepareStatement(
-                "SELECT * FROM leagues WHERE name = ?");
-        leagueStmt.setString(1, name);
-        ResultSet leagueResult = leagueStmt.executeQuery();
+        logDebug("Loading league: " + name);
+        League league;
 
-        if (!leagueResult.next()) {
-            leagueStmt.close();
-            return null; // League not found
+        // Base league row
+        try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM leagues WHERE name = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+
+                league = new League(name, rs.getInt("predictedDrivers"));
+
+                // TeamMode
+                try { league.setTeamMode(TeamMode.valueOf(rs.getString("teamMode"))); }
+                catch (Exception ignored) {}
+
+                league.setTeamMaxSize(getIntSafe(rs, "teamMaxSize", 4));
+                league.setTeamScoringCount(getIntSafe(rs, "teamScoringCount", 2));
+
+                // Custom scale
+                try {
+                    String scaleJson = rs.getString("customScalePoints");
+                    if (scaleJson != null && !scaleJson.isEmpty()) {
+                        deserializeIntMap(scaleJson).forEach(league::setCustomScalePoint);
+                    }
+                } catch (Exception ignored) {}
+
+                // Global mulligans
+                league.setMulliganCount(getIntSafe(rs, "mulliganCount", 0));
+                league.setTeamMulligansEnabled(getIntSafe(rs, "teamMulligansEnabled", 0) == 1);
+
+                // Scoring system
+                try {
+                    String sysName = rs.getString("scoringSystem");
+                    league.setScoringSystem(EventCategory.scoringSystemFromName(sysName));
+                } catch (Exception ignored) {}
+
+                // Standings toggles
+                league.setDriverStandingsEnabled(getIntSafe(rs, "driverStandingsEnabled", 1) == 1);
+                league.setTeamStandingsEnabled(getIntSafe(rs, "teamStandingsEnabled", 1) == 1);
+            }
         }
 
-        int predictedDrivers = leagueResult.getInt("predictedDrivers");
-        League league = new League(name, predictedDrivers);
-
-        TeamMode teamMode;
-        try {
-            teamMode = TeamMode.valueOf(leagueResult.getString("teamMode"));
-        } catch (IllegalArgumentException | NullPointerException e) {
-            teamMode = TeamMode.MAIN_RESERVE; // safe default
+        // event_categories
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT * FROM event_categories WHERE leagueName = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                int catCount = 0;
+                while (rs.next()) {
+                    String id          = rs.getString("categoryId");
+                    String displayName = rs.getString("displayName");
+                    String sysName     = rs.getString("scoringSystem");
+                    int mulligans      = rs.getInt("mulliganCount");
+                    EventCategory cat  = new EventCategory(
+                            id, displayName,
+                            EventCategory.scoringSystemFromName(sysName),
+                            mulligans);
+                    league.addCategory(cat);
+                    catCount++;
+                }
+                logDebug("Loaded " + catCount + " categories for: " + name);
+            }
         }
-        league.setTeamMode(teamMode);
 
-        int teamMaxDrivers;
-        int teamScoringCount;
-        try {
-            teamMaxDrivers = leagueResult.getInt("teamMaxSize");
-            teamScoringCount = leagueResult.getInt("teamScoringCount");
-        } catch (Exception e){
-            teamMaxDrivers = 4;
-            teamScoringCount = 2;
+        // teams
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT * FROM teams WHERE leagueName = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                int teamCount = 0;
+                while (rs.next()) {
+                    String teamName = rs.getString("name");
+                    Team team = new Team(teamName, rs.getString("color"), league);
+                    team.setOwner(rs.getString("owner"));
+                    league.addTeam(team);
+                    int pts = Integer.parseInt(rs.getString("points"));
+                    league.setTeamPoints(teamName, pts);
+                    team.setPoints(pts);
+                    teamCount++;
+                }
+                logDebug("Loaded " + teamCount + " teams for: " + name);
+            }
         }
 
-        league.setTeamMaxSize(teamMaxDrivers);
-        league.setTeamScoringCount(teamScoringCount);
-        
-        // Load custom scale (with heavy fallback)
-        try {
-            String customScaleJson = leagueResult.getString("customScalePoints");
-            if (customScaleJson != null && !customScaleJson.isEmpty()) {
-                Map<Integer, Integer> customScale = deserializeCustomScale(customScaleJson);
-                if (customScale != null && !customScale.isEmpty()) {
-                    for (Map.Entry<Integer, Integer> entry : customScale.entrySet()) {
-                        league.setCustomScalePoint(entry.getKey(), entry.getValue());
+        // drivers
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT * FROM drivers WHERE leagueName = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                int driverCount = 0;
+                while (rs.next()) {
+                    String uuid     = rs.getString("uuid");
+                    String teamName = rs.getString("team");
+                    String role     = rs.getString("role");
+                    int points      = rs.getInt("points");
+
+                    Team team = league.getTeams().stream()
+                            .filter(t -> t.getName().equalsIgnoreCase(teamName))
+                            .findFirst()
+                            .orElseGet(() -> {
+                                log("WARNING: driver " + uuid + " references unknown team '" + teamName + "' — creating placeholder");
+                                Team nt = new Team(teamName, "ffffff", league);
+                                league.addTeam(nt);
+                                return nt;
+                            });
+
+                    league.addDriver(uuid, team);
+                    if ("main".equalsIgnoreCase(role))         team.addMainDriver(uuid);
+                    else if ("reserve".equalsIgnoreCase(role)) team.addReserveDriver(uuid);
+                    else {
+                        try { team.addPriorityDriver(uuid, Integer.parseInt(role)); }
+                        catch (NumberFormatException ignored) {}
+                    }
+                    league.setDriverPoints(uuid, points);
+                    driverCount++;
+                }
+                logDebug("Loaded " + driverCount + " drivers for: " + name);
+            }
+        }
+
+        // calendar (now with category + heatId)
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT * FROM calendar WHERE leagueName = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String eventName = rs.getString("eventName");
+                    String category  = rs.getString("category");  // may be null
+                    String heatId    = rs.getString("heatId");    // may be null
+                    league.addCalendarEntry(new CalendarEntry(eventName, category, heatId));
+                }
+            }
+        }
+
+        // point_history
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT * FROM point_history WHERE leagueName = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    PointEntry entry = new PointEntry(
+                            rs.getString("source"),
+                            rs.getString("eventId"),
+                            rs.getInt("points"),
+                            rs.getLong("timestamp"));
+                    if ("driver".equals(rs.getString("targetType"))) {
+                        league.addDriverPointEntry(rs.getString("targetId"), entry);
+                    } else {
+                        league.addTeamPointEntry(rs.getString("targetId"), entry);
                     }
                 }
             }
-        } catch (Exception e) {
-            log("WARNING: Failed to load custom scale for " + name + ", continuing without it");
-        }
-
-        // Load mulligan settings (with heavy fallback)
-        try {
-            int mulliganCount = leagueResult.getInt("mulliganCount");
-            league.setMulliganCount(mulliganCount);
-        } catch (Exception e) {
-            log("WARNING: Failed to load mulliganCount for " + name + ", defaulting to 0");
-            league.setMulliganCount(0);
-        }
-
-        try {
-            int teamMulligansInt = leagueResult.getInt("teamMulligansEnabled");
-            league.setTeamMulligansEnabled(teamMulligansInt == 1);
-        } catch (Exception e) {
-            log("WARNING: Failed to load teamMulligansEnabled for " + name + ", defaulting to false");
-            league.setTeamMulligansEnabled(false);
-        }
-
-        leagueStmt.close();
-
-        // Load teams
-        PreparedStatement teamStmt = connection.prepareStatement(
-                "SELECT * FROM teams WHERE leagueName = ?"
-        );
-        teamStmt.setString(1, name);
-        ResultSet teamResult = teamStmt.executeQuery();
-
-        while (teamResult.next()) {
-            String teamName = teamResult.getString("name");
-            String color = teamResult.getString("color");
-            String owner = teamResult.getString("owner");
-            String StrPoints =  (teamResult.getString("points"));
-            int points = Integer.parseInt(StrPoints);
-
-            Team team = new Team(teamName, color, league);
-            team.setOwner(owner);
-            league.addTeam(team);
-            league.setTeamPoints(team.getName(), points); // apparently the order in which you do these 2 things are very important
-            team.setPoints(points); //backup just incase
-        }
-        teamStmt.close();
-
-        // Load drivers
-        PreparedStatement driverStmt = connection.prepareStatement(
-                "SELECT * FROM drivers WHERE leagueName = ?"
-        );
-        driverStmt.setString(1, name);
-        ResultSet driverResult = driverStmt.executeQuery();
-
-        while (driverResult.next()) {
-            String uuid = driverResult.getString("uuid");
-            String teamName = driverResult.getString("team");
-            String role = driverResult.getString("role");
-            int points = driverResult.getInt("points");
-
-            Team team = league.getTeams().stream()
-                    .filter(t -> t.getName().equalsIgnoreCase(teamName))
-                    .findFirst()
-                    .orElseGet(() -> {
-                        Team newTeam = new Team(teamName, "ffffff", league);
-                        league.addTeam(newTeam);
-                        return newTeam;
-                    });
-
-            league.addDriver(uuid, team);
-            if ("main".equalsIgnoreCase(role)) {
-                team.addMainDriver(uuid);
-            } else if ("reserve".equalsIgnoreCase(role)) {
-                team.addReserveDriver(uuid);
-            } else {
-                try{
-                    team.addPriorityDriver(uuid, Integer.parseInt(role));
-                } catch (NumberFormatException ignored){
-
-                }
-            }
-
-            league.setDriverPoints(uuid, points);
-        }
-        driverStmt.close();
-
-
-        // Load calendar
-        PreparedStatement calendarStmt = connection.prepareStatement(
-                "SELECT * FROM calendar WHERE leagueName = ?");
-        calendarStmt.setString(1, name);
-        ResultSet calendarResult = calendarStmt.executeQuery();
-
-        while (calendarResult.next()) {
-            String eventName = calendarResult.getString("eventName");
-            league.addEvent(eventName);
-        }
-        calendarStmt.close();
-
-        // Load point history (with heavy fallback)
-        try {
-            PreparedStatement historyStmt = connection.prepareStatement(
-                    "SELECT * FROM point_history WHERE leagueName = ?");
-            historyStmt.setString(1, name);
-            ResultSet historyResult = historyStmt.executeQuery();
-
-            while (historyResult.next()) {
-                String targetType = historyResult.getString("targetType");
-                String targetId = historyResult.getString("targetId");
-                String source = historyResult.getString("source");
-                String eventId = historyResult.getString("eventId");
-                int points = historyResult.getInt("points");
-                long timestamp = historyResult.getLong("timestamp");
-
-                PointEntry entry = new PointEntry(source, eventId, points, timestamp);
-
-                if ("driver".equals(targetType)) {
-                    league.addDriverPointEntry(targetId, entry);
-                } else if ("team".equals(targetType)) {
-                    league.addTeamPointEntry(targetId, entry);
-                }
-            }
-
-            historyStmt.close();
         } catch (SQLException e) {
             log("WARNING: Failed to load point history for " + name + ": " + e.getMessage());
-            // Continue anyway - league will work without history (no mulligans)
         }
 
         return league;
@@ -642,135 +534,177 @@ public class DatabaseManager {
 
     public Map<String, League> loadAllLeagues() throws SQLException {
         Map<String, League> leagues = new HashMap<>();
-
-        PreparedStatement stmt = connection.prepareStatement("SELECT name FROM leagues");
-        ResultSet rs = stmt.executeQuery();
-
-        while (rs.next()) {
-            String name = rs.getString("name");
-            League league = loadLeague(name);
-            if (league != null) {
-                leagues.put(name, league);
+        try (PreparedStatement ps = connection.prepareStatement("SELECT name FROM leagues");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String name = rs.getString("name");
+                League league = loadLeague(name);
+                if (league != null) leagues.put(name, league);
             }
         }
-
-        stmt.close();
         return leagues;
     }
 
+    private int getIntSafe(ResultSet rs, String col, int fallback) {
+        try { return rs.getInt(col); } catch (Exception ignored) { return fallback; }
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Hologram save / load (unchanged logic, kept here)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public void saveHolograms(List<String> holograms) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM holograms")) {
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = connection.prepareStatement(
+                "INSERT OR REPLACE INTO holograms (id,leagueName,world,x,y,z) VALUES (?,?,?,?,?,?)")) {
+            for (String hologramName : holograms) {
+                Hologram holo = DHAPI.getHologram(hologramName);
+                if (holo == null) continue;
+                Location loc = holo.getLocation();
+                String stripped = hologramName.substring("league-holo-".length());
+                String[] parts = stripped.split("-", 3);
+                if (parts.length < 3) continue;
+                ps.setString(1, hologramName);
+                ps.setString(2, parts[0]);
+                ps.setString(3, loc.getWorld().getName());
+                ps.setDouble(4, loc.getX());
+                ps.setDouble(5, loc.getY());
+                ps.setDouble(6, loc.getZ());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    public List<String> loadHolograms() throws SQLException {
+        List<String> holoNames = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT id,leagueName,world,x,y,z FROM holograms");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String id         = rs.getString("id");
+                String leagueName = rs.getString("leagueName");
+                String worldName  = rs.getString("world");
+                World world = Bukkit.getWorld(worldName);
+                if (world == null) { Bukkit.getLogger().warning("[TL] Hologram world not found: " + worldName); continue; }
+
+                Map<String, League> leagueMap = TImingLeague.getLeagueMap();
+                League league = leagueMap.get(leagueName);
+                if (league == null) { Bukkit.getLogger().warning("[TL] Hologram league not found: " + leagueName); continue; }
+
+                Location location = new Location(world, rs.getDouble("x"), rs.getDouble("y"), rs.getDouble("z"));
+                String stripped = id.substring("league-holo-".length());
+                String[] parts = stripped.split("-", 3);
+                if (parts.length < 3) { Bukkit.getLogger().warning("[TL] Invalid hologram ID: " + id); continue; }
+
+                boolean teamMode = Boolean.parseBoolean(parts[1]);
+                List<String> lines = new ArrayList<>();
+                lines.add("&c" + leagueName + " " + (teamMode ? "team" : "driver") + " leaderboard");
+
+                var standings = teamMode ? league.getTeamStandings().entrySet()
+                                         : league.getDriverStandings().entrySet();
+                var sorted = standings.stream()
+                        .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                        .toList();
+
+                for (int i = 0; i < Math.min(15, sorted.size()); i++) {
+                    var entry = sorted.get(i);
+                    if (teamMode) {
+                        lines.add("&e#" + (i+1) + ". &b" + entry.getKey() + " &7- &a" + entry.getValue() + " pts");
+                    } else {
+                        String pName = Bukkit.getOfflinePlayer(java.util.UUID.fromString(entry.getKey())).getName();
+                        lines.add("&e#" + (i+1) + ". &b" + (pName != null ? pName : "Unknown") + " &7- &a" + entry.getValue() + " pts");
+                    }
+                }
+                while (lines.size() < 15) lines.add("&e#" + lines.size() + ". &7---");
+
+                DHAPI.createHologram(id, location, false, lines);
+                holoNames.add(id);
+            }
+        }
+        return holoNames;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CSV export
+    // ─────────────────────────────────────────────────────────────────────────
+
     public void exportDatabaseToCSV(File dbFile, File outputFolder) throws SQLException, IOException {
-        Connection connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
-
-        // Get all table names
-        DatabaseMetaData meta = connection.getMetaData();
+        Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
+        DatabaseMetaData meta = conn.getMetaData();
         ResultSet tables = meta.getTables(null, null, "%", new String[]{"TABLE"});
-
         while (tables.next()) {
             String tableName = tables.getString("TABLE_NAME");
             File csvFile = new File(outputFolder, tableName + ".csv");
-
-            try (
-                    PrintWriter writer = new PrintWriter(new FileWriter(csvFile));
-                    Statement stmt = connection.createStatement();
-                    ResultSet rs = stmt.executeQuery("SELECT * FROM " + tableName)
-            ) {
+            try (PrintWriter writer = new PrintWriter(new FileWriter(csvFile));
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT * FROM " + tableName)) {
                 ResultSetMetaData rsmd = rs.getMetaData();
-                int columnCount = rsmd.getColumnCount();
-
-                // Write header
-                for (int i = 1; i <= columnCount; i++) {
+                int cols = rsmd.getColumnCount();
+                for (int i = 1; i <= cols; i++) {
                     writer.print(rsmd.getColumnName(i));
-                    if (i < columnCount) writer.print(",");
+                    if (i < cols) writer.print(",");
                 }
                 writer.println();
-
-                // Write rows
                 while (rs.next()) {
-                    for (int i = 1; i <= columnCount; i++) {
+                    for (int i = 1; i <= cols; i++) {
                         writer.print(rs.getString(i));
-                        if (i < columnCount) writer.print(",");
+                        if (i < cols) writer.print(",");
                     }
                     writer.println();
                 }
-
-                System.out.println("Exported table: " + tableName + " -> " + csvFile.getName());
             }
         }
+        conn.close();
+    }
 
-        connection.close();
+    // ─────────────────────────────────────────────────────────────────────────
+    // JSON helpers for Map<Integer,Integer>
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private String serializeIntMap(Map<Integer, Integer> map) {
+        if (map == null || map.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder("{");
+        boolean first = true;
+        for (Map.Entry<Integer, Integer> e : map.entrySet()) {
+            if (!first) sb.append(",");
+            sb.append("\"").append(e.getKey()).append("\":").append(e.getValue());
+            first = false;
+        }
+        return sb.append("}").toString();
+    }
+
+    private Map<Integer, Integer> deserializeIntMap(String json) {
+        Map<Integer, Integer> result = new HashMap<>();
+        if (json == null || json.isBlank()) return result;
+        String content = json.trim().replaceAll("^\\{|\\}$", "");
+        if (content.isBlank()) return result;
+        for (String pair : content.split(",")) {
+            String[] parts = pair.split(":");
+            if (parts.length != 2) continue;
+            try {
+                int key = Integer.parseInt(parts[0].trim().replace("\"", ""));
+                int val = Integer.parseInt(parts[1].trim());
+                if (key > 0) result.put(key, val);
+            } catch (NumberFormatException ignored) {}
+        }
+        return result;
     }
 
     private void log(String msg) {
         Bukkit.getLogger().info("[TimingLeague] " + msg);
     }
-    
-    // Simple JSON serialization for custom scale (fallback-heavy)
-    private String serializeCustomScale(Map<Integer, Integer> scale) {
-        if (scale == null || scale.isEmpty()) {
-            return null;
-        }
-        
-        try {
-            StringBuilder json = new StringBuilder("{");
-            boolean first = true;
-            
-            for (Map.Entry<Integer, Integer> entry : scale.entrySet()) {
-                if (!first) json.append(",");
-                json.append("\"").append(entry.getKey()).append("\":").append(entry.getValue());
-                first = false;
-            }
-            
-            json.append("}");
-            return json.toString();
-        } catch (Exception e) {
-            log("ERROR: Failed to serialize custom scale");
-            return null;
-        }
-    }
-    
-    private Map<Integer, Integer> deserializeCustomScale(String json) {
-        if (json == null || json.trim().isEmpty()) {
-            return new HashMap<>();
-        }
-        
-        Map<Integer, Integer> result = new HashMap<>();
-        
-        try {
-            // Remove { and }
-            String content = json.trim();
-            if (content.startsWith("{")) content = content.substring(1);
-            if (content.endsWith("}")) content = content.substring(0, content.length() - 1);
-            
-            if (content.trim().isEmpty()) {
-                return result;
-            }
-            
-            // Split by comma
-            String[] pairs = content.split(",");
-            
-            for (String pair : pairs) {
-                // Split by colon
-                String[] parts = pair.split(":");
-                if (parts.length != 2) continue;
-                
-                try {
-                    // Remove quotes from key
-                    String keyStr = parts[0].trim().replace("\"", "");
-                    int key = Integer.parseInt(keyStr);
-                    int value = Integer.parseInt(parts[1].trim());
-                    
-                    if (key > 0) {
-                        result.put(key, value);
-                    }
-                } catch (NumberFormatException e) {
-                    log("WARNING: Skipping invalid custom scale entry: " + pair);
-                }
-            }
-        } catch (Exception e) {
-            log("ERROR: Failed to deserialize custom scale, returning empty map");
-            return new HashMap<>();
-        }
-        
-        return result;
+
+    /**
+     * Debug-level log — shows progress through save/load steps.
+     * Kept at INFO level but prefixed with [DEBUG] so it can be grepped
+     * without flooding the console the way FINE/FINER would.
+     * To silence these, search for [TimingLeague] [DEBUG] in your log filter.
+     */
+    private void logDebug(String msg) {
+        Bukkit.getLogger().info("[TimingLeague] [DEBUG] " + msg);
     }
 }
