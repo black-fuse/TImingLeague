@@ -1,7 +1,5 @@
 package com.tekad.TimingLeague;
 
-import com.tekad.TimingLeague.API.RestAPIServer;
-import com.tekad.TimingLeague.API.config.APIConfig;
 import com.tekad.TimingLeague.commands.LeagueCommandCompleter;
 import com.tekad.TimingLeague.commands.leagueCommand;
 import lombok.Getter;
@@ -17,7 +15,6 @@ import java.util.Map;
 public final class TImingLeague extends JavaPlugin {
 
     private DatabaseManager db;
-    private RestAPIServer apiServer;
 
     @Getter
     private static final Map<String, League> leagueMap = new HashMap<>();
