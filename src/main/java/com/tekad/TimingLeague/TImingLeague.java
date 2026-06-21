@@ -1,5 +1,6 @@
 package com.tekad.TimingLeague;
 
+import com.tekad.TimingLeague.API.TimingLeagueAPI;
 import com.tekad.TimingLeague.commands.LeagueCommandCompleter;
 import com.tekad.TimingLeague.commands.leagueCommand;
 import lombok.Getter;
@@ -16,13 +17,19 @@ public final class TImingLeague extends JavaPlugin {
 
     private DatabaseManager db;
 
+    private static TImingLeague instance;
+
     @Getter
-    private static final Map<String, League> leagueMap = new HashMap<>();
+    private static TimingLeagueAPI api;
+
+    @Getter
+    private final Map<String, League> leagueMap = new HashMap<>();
     @Getter
     private static List<String> holograms = new ArrayList<>();
 
     @Override
     public void onEnable() {
+        instance = this;
         // Ensure data folder exists before database file creation
         getDataFolder().mkdirs();
         leagueCommand thing = new leagueCommand();
@@ -37,6 +44,12 @@ public final class TImingLeague extends JavaPlugin {
             holograms.addAll(db.loadHolograms());
         } catch (SQLException e) {
             getLogger().severe("[TimingLeague] Failed to connect to the database: " + e);
+        }
+
+        getLogger().info("[TimingLeague] leagueMap size after DB load = " + leagueMap.size());
+
+        for (String name : leagueMap.keySet()) {
+            getLogger().info("[TimingLeague] loaded league: " + name);
         }
 
         try{
@@ -55,29 +68,12 @@ public final class TImingLeague extends JavaPlugin {
             getLogger().severe("Command 'league' not found in plugin.yml!");
         }
 
-        // Start REST API
-//        try {
-//            APIConfig apiConfig = new APIConfig(this);
-//            apiServer = new RestAPIServer(this, apiConfig);
-//            apiServer.start();
-//        } catch (Exception e) {
-//            getLogger().severe("[API] Failed to start REST API: " + e.getMessage());
-//            e.printStackTrace();
-//        }
+
     }
 
 
     @Override
     public void onDisable() {
-        // Stop REST API
-        if (apiServer != null) {
-            try {
-                apiServer.stop();
-            } catch (Exception e) {
-                getLogger().warning("[API] Error stopping REST API: " + e.getMessage());
-            }
-        }
-
         try {
             db.saveAllLeagues(leagueMap.values());
         } catch (SQLException e) {
@@ -88,6 +84,10 @@ public final class TImingLeague extends JavaPlugin {
         } catch (SQLException e) {
             getLogger().severe("[TimingLeague] Failed to save holograms: " + e.getMessage());
         }
+    }
+
+    public static TImingLeague getInstance() {
+        return instance;
     }
 
     public DatabaseManager getDatabaseManager() {

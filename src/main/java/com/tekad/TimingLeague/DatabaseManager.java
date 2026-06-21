@@ -593,7 +593,7 @@ public class DatabaseManager {
                 World world = Bukkit.getWorld(worldName);
                 if (world == null) { Bukkit.getLogger().warning("[TL] Hologram world not found: " + worldName); continue; }
 
-                Map<String, League> leagueMap = TImingLeague.getLeagueMap();
+                Map<String, League> leagueMap = TImingLeague.getInstance().getLeagueMap();
                 League league = leagueMap.get(leagueName);
                 if (league == null) { Bukkit.getLogger().warning("[TL] Hologram league not found: " + leagueName); continue; }
 

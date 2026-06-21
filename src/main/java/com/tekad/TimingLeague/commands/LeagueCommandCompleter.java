@@ -17,7 +17,7 @@ public class LeagueCommandCompleter implements TabCompleter {
     private static final List<String> SCORING_SYSTEMS =
             List.of("fc1", "fc2", "default", "wibrs", "iec", "iecdouble", "iecopener", "linear");
 
-    private final Map<String, League> leagues = TImingLeague.getLeagueMap();
+    private final Map<String, League> leagues = TImingLeague.getInstance().getLeagueMap();
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {

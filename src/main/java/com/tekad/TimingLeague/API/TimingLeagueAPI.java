@@ -5,12 +5,12 @@ import com.tekad.TimingLeague.TImingLeague;
 
 import java.util.Collection;
 
-public class TimingLeaugeAPI {
+public class TimingLeagueAPI {
     public static Collection<League> getLeagues() {
-        return TImingLeague.getLeagueMap().values();
+        return TImingLeague.getInstance().getLeagueMap().values();
     }
 
     public static League getLeague(String name) {
-        return TImingLeague.getLeagueMap().get(name);
+        return TImingLeague.getInstance().getLeagueMap().get(name);
     }
 }

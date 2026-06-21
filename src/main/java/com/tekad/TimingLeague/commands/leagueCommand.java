@@ -21,7 +21,7 @@ import java.util.*;
 
 public class leagueCommand implements CommandExecutor {
 
-    private final Map<String, League> leagues = TImingLeague.getLeagueMap();
+    private final Map<String, League> leagues = TImingLeague.getInstance().getLeagueMap();
     private final Map<String, Map<String, Set<String>>> pendingInvites = new HashMap<>();
 
     private final LeagueTeamCommands teamCommands;
