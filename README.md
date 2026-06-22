@@ -1,4 +1,6 @@
-# TImingLeague
+# TImingLeague 
+
+[![](https://www.jitpack.io/v/FrostHexABG/TImingLeague.svg)](https://www.jitpack.io/#FrostHexABG/TImingLeague)    
 
 **TImingLeague** is a Minecraft plugin designed to work with the *Timing System* plugin. It helps server admins manage racing leagues: track multiple events, score drivers (and teams), generate leaderboards / standings, etc. All core functionality is now implemented; what remains is polishing, UX tweaks, and refinements.
 
